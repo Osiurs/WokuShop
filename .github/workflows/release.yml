@@ -6,7 +6,7 @@ on:
       - 'v*.*.*'
 
 jobs:
-  release:
+  build:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -32,49 +32,45 @@ jobs:
         if: matrix.os == 'macos-latest'
         working-directory: wokushop-account-manager
         run: npm run build:mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Build for Windows
         if: matrix.os == 'windows-latest'
         working-directory: wokushop-account-manager
         run: npm run build:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Build for Linux
         if: matrix.os == 'ubuntu-latest'
         working-directory: wokushop-account-manager
         run: npm run build:linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Upload Release Assets (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: softprops/action-gh-release@v1
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
         with:
-          files: |
+          name: build-artifacts-${{ matrix.os }}
+          path: |
             wokushop-account-manager/dist/*.dmg
             wokushop-account-manager/dist/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Upload Release Assets (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
             wokushop-account-manager/dist/*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Upload Release Assets (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
             wokushop-account-manager/dist/*.AppImage
             wokushop-account-manager/dist/*.deb
+          if-no-files-found: ignore
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: List downloaded files
+        run: find artifacts -type f
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
