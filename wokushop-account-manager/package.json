@@ -1,0 +1,77 @@
+{
+  "name": "woku-app",
+  "version": "1.0.0",
+  "description": "Desktop application for managing shared subscription accounts",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "clear-cache": "node clear-cache.js",
+    "fresh-start": "node clear-cache.js && electron .",
+    "fresh-dev": "node clear-cache.js && electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": [
+    "electron",
+    "account-manager",
+    "subscription-manager"
+  ],
+  "author": "WokuShop",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^30.0.0-castlabs.1",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "archiver": "^6.0.1",
+    "axios": "^1.6.2",
+    "electron-store": "^8.1.0",
+    "form-data": "^4.0.0",
+    "node-machine-id": "^1.1.12",
+    "unzipper": "^0.10.14"
+  },
+  "build": {
+    "appId": "com.wokushop.wokuapp",
+    "productName": "Woku App",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "public/**/*",
+      "config/**/*",
+      "extensions/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "extensions",
+        "to": "extensions",
+        "filter": ["**/*"]
+      }
+    ],
+    "asarUnpack": [
+      "**/extensions/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "src/assets/images/logo.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "src/assets/images/logo.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "src/assets/images/logo.png"
+    }
+  }
+}

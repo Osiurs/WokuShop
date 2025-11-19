@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Woku App</title>
+  <link rel="stylesheet" href="../assets/css/styles.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <img src="../assets/images/logo.png" alt="Woku App Logo" class="sidebar-logo">
+          <span>Woku App</span>
+        </div>
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div class="user-details">
+            <h4 id="userName">Admin User</h4>
+            <p id="userRole">admin</p>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-item active" data-page="dashboard">
+          <i>📊</i>
+          <span>Dashboard</span>
+        </div>
+        <div class="nav-item" data-page="accounts">
+          <i>🔐</i>
+          <span>Accounts</span>
+        </div>
+        <div class="nav-item admin-only" data-page="services">
+          <i>🌐</i>
+          <span>Services</span>
+        </div>
+        <div class="nav-item admin-only" data-page="users">
+          <i>👥</i>
+          <span>Users</span>
+        </div>
+        <div class="nav-item admin-only" data-page="history">
+          <i>📜</i>
+          <span>History</span>
+        </div>
+        <div class="nav-item admin-only" data-page="chat-lock">
+          <i>🔒</i>
+          <span>Chat Lock</span>
+        </div>
+        <div class="nav-item admin-only" data-page="deployment">
+          <i>🚀</i>
+          <span>Deployment</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="session-sync-controls">
+          <button class="btn btn-primary btn-small" id="sessionSyncBtn" onclick="performSessionSync()" title="Synchronize session across devices">
+            <i>🔄</i> Sync Session
+          </button>
+          <button class="btn btn-secondary btn-small" id="sessionValidateBtn" onclick="validateSession()" title="Validate current session status">
+            <i>🔍</i> Validate
+          </button>
+        </div>
+        <button class="btn btn-logout" id="logoutBtn">
+          <i>🚪</i> Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="topbar">
+        <h1 id="pageTitle">Dashboard</h1>
+      </div>
+
+      <div class="content-area" id="contentArea">
+        <!-- Content will be loaded dynamically -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Add Account Modal -->
+  <div id="addAccountModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add New Account</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="addAccountForm">
+        <div class="form-group">
+          <label for="accountName">Account Name</label>
+          <input type="text" id="accountName" required placeholder="e.g., YouTube Premium">
+        </div>
+        <div class="form-group">
+          <label for="serviceType">Service Type</label>
+          <select id="serviceType" required>
+            <!-- Options loaded dynamically from database -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="accountDescription">Description</label>
+          <input type="text" id="accountDescription" placeholder="Optional description">
+        </div>
+        <button type="submit" class="btn btn-primary">Add Account</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add User Modal -->
+  <div id="addUserModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add New User</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="addUserForm">
+        <div class="form-group">
+          <label for="newUsername">Username</label>
+          <input type="text" id="newUsername" required placeholder="Enter username">
+        </div>
+        <div class="form-group">
+          <label for="newPassword">Password</label>
+          <input type="password" id="newPassword" required placeholder="Enter password">
+        </div>
+        <div class="form-group">
+          <label for="userRoleSelect">Role</label>
+          <select id="userRoleSelect" required>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Add User</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Assign Accounts Modal -->
+  <div id="assignAccountsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Assign Accounts</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <div id="assignAccountsList"></div>
+      <button class="btn btn-primary" id="saveAssignments">Save Assignments</button>
+    </div>
+  </div>
+
+  <!-- Add Service Modal -->
+  <div id="addServiceModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add New Service</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="addServiceForm">
+        <div class="form-group">
+          <label for="newServiceType">Service Type (ID)</label>
+          <input type="text" id="newServiceType" required placeholder="e.g., discord, slack, notion">
+          <small>Use lowercase, no spaces</small>
+        </div>
+        <div class="form-group">
+          <label for="serviceDisplayName">Display Name</label>
+          <input type="text" id="serviceDisplayName" required placeholder="e.g., Discord">
+        </div>
+        <div class="form-group">
+          <label for="serviceLoginUrl">Login URL</label>
+          <input type="url" id="serviceLoginUrl" required placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label for="serviceDescription">Description</label>
+          <input type="text" id="serviceDescription" placeholder="Optional description">
+        </div>
+        <div class="form-group">
+          <label for="serviceIcon">Icon Emoji</label>
+          <input type="text" id="serviceIcon" placeholder="🌐" maxlength="10">
+        </div>
+        <button type="submit" class="btn btn-primary">Add Service</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Service Modal -->
+  <div id="editServiceModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Service</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="editServiceForm">
+        <input type="hidden" id="editServiceId">
+        <div class="form-group">
+          <label for="editServiceDisplayName">Display Name</label>
+          <input type="text" id="editServiceDisplayName" required>
+        </div>
+        <div class="form-group">
+          <label for="editServiceLoginUrl">Login URL</label>
+          <input type="url" id="editServiceLoginUrl" required>
+        </div>
+        <div class="form-group">
+          <label for="editServiceDescription">Description</label>
+          <input type="text" id="editServiceDescription">
+        </div>
+        <div class="form-group">
+          <label for="editServiceIcon">Icon Emoji</label>
+          <input type="text" id="editServiceIcon" maxlength="10">
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="editServiceActive">
+            Active
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Update Service</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Manage Domains Modal -->
+  <div id="manageDomainsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Manage Allowed Domains</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <div id="domainsList"></div>
+      <form id="addDomainForm">
+        <div class="form-group">
+          <label for="newDomain">Add Domain</label>
+          <input type="text" id="newDomain" placeholder="e.g., example.com" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Domain</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Chat Lock Modal -->
+  <div id="addChatLockModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add Chat Lock</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="addChatLockForm">
+        <div class="form-group">
+          <label for="lockAccountId">Account *</label>
+          <select id="lockAccountId" required>
+            <option value="">Select an account...</option>
+          </select>
+          <small>Select the account where the chat is located</small>
+        </div>
+
+        <div class="form-group">
+          <label for="lockChatId">Chat ID / URL *</label>
+          <input type="text" id="lockChatId" placeholder="e.g., abc123xyz or full URL" required>
+          <small>Enter the chat ID or paste the full chat URL. Examples:<br>
+            - ChatGPT: https://chat.openai.com/c/<strong>abc123xyz</strong><br>
+            - Gemini: https://gemini.google.com/app/<strong>def456</strong><br>
+            - Or just the ID: <strong>abc123xyz</strong>
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="lockUserId">Lock To User *</label>
+          <select id="lockUserId" required>
+            <option value="">Select a user...</option>
+          </select>
+          <small>Only this user (and admins) will be able to access this chat</small>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Lock Chat</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/dashboard.js"></script>
+</body>
+</html>
