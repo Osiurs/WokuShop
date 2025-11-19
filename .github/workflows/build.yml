@@ -50,7 +50,9 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgconf-2-4 libnss3 libxtst6 libxss1 libasound2
+          sudo apt-get install -y --no-install-recommends libgconf-2-4 libnss3 libxtst6 libxss1 libasound2
+        env:
+          DEBIAN_FRONTEND: noninteractive
 
       - name: Build for Linux
         if: matrix.os == 'ubuntu-latest'
