@@ -55,26 +55,26 @@ jobs:
       
       - name: Upload macOS artifacts
         if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: woku-app-macos
           path: |
             wokushop-account-manager/dist/*.dmg
             wokushop-account-manager/dist/*.zip
           retention-days: 30
-      
+
       - name: Upload Windows artifacts
         if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: woku-app-windows
           path: |
             wokushop-account-manager/dist/*.exe
           retention-days: 30
-      
+
       - name: Upload Linux artifacts
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: woku-app-linux
           path: |
