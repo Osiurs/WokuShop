@@ -1,15 +1,24 @@
 <?php
-header("Access-Control-Allow-Origin: *");
+require_once __DIR__ . '/env.php';
+
+header("Access-Control-Allow-Origin: " . Env::get('CORS_ORIGIN', '*'));
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
 class Database {
-    private $host = "localhost";
-    private $db_name = "wokushop_db";
-    private $username = "root";
-    private $password = "";
+    private $host;
+    private $db_name;
+    private $username;
+    private $password;
     public $conn;
+
+    public function __construct() {
+        $this->host = Env::get('DB_HOST', 'localhost');
+        $this->db_name = Env::get('DB_NAME', 'wokushop_db');
+        $this->username = Env::get('DB_USER', 'root');
+        $this->password = Env::get('DB_PASS', '');
+    }
 
     public function getConnection() {
         $this->conn = null;
@@ -35,10 +44,10 @@ class Database {
 
     // Initialize database and tables
     public static function initialize() {
-        $host = "localhost";
-        $username = "root";
-        $password = "";
-        $db_name = "wokushop_db";
+        $host = Env::get('DB_HOST', 'localhost');
+        $username = Env::get('DB_USER', 'root');
+        $password = Env::get('DB_PASS', '');
+        $db_name = Env::get('DB_NAME', 'wokushop_db');
 
         try {
             // Create database if not exists
@@ -193,6 +202,18 @@ class Database {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
             $conn->exec($sql);
 
+            // Create Service Account Cookies table
+            $sql = "CREATE TABLE IF NOT EXISTS service_account_cookies (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                account_id INT NOT NULL,
+                cookies TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+                UNIQUE KEY unique_account_cookie (account_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+            $conn->exec($sql);
+
             // Create Sessions table for JWT tokens
             $sql = "CREATE TABLE IF NOT EXISTS sessions (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -207,6 +228,44 @@ class Database {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
             $conn->exec($sql);
 
+            // Create User Sessions table for cross-machine session sync
+            $sql = "CREATE TABLE IF NOT EXISTS user_sessions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                machine_id VARCHAR(255) NOT NULL,
+                session_token VARCHAR(255) NOT NULL,
+                session_data TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                expires_at TIMESTAMP NOT NULL,
+                last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_user_machine (user_id, machine_id),
+                INDEX idx_session_token (session_token),
+                INDEX idx_expires (expires_at),
+                INDEX idx_last_active (last_active)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+            $conn->exec($sql);
+
+            // Create Session Sync Log table for tracking sync operations
+            $sql = "CREATE TABLE IF NOT EXISTS session_sync_log (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                machine_id VARCHAR(255) NOT NULL,
+                action VARCHAR(50) NOT NULL,
+                session_token VARCHAR(255),
+                success BOOLEAN DEFAULT TRUE,
+                error_message TEXT,
+                sync_data TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_user_action (user_id, action),
+                INDEX idx_machine_action (machine_id, action),
+                INDEX idx_created_at (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+            $conn->exec($sql);
+
             // Insert default admin user
             $defaultPassword = password_hash('admin123', PASSWORD_BCRYPT);
             $sql = "INSERT IGNORE INTO users (username, password, role) VALUES ('admin', :password, 'admin')";
@@ -215,11 +274,13 @@ class Database {
             $stmt->execute();
 
             // Insert default services
+            // NOTE: All services use admin pre-login (requires_user_credentials = false)
+            // Admin logs in once, all users share the same session via partition_id
             $services = [
-                ['youtube', 'YouTube', 'https://www.youtube.com', 'Video streaming platform', '📺', true],
-                ['spotify', 'Spotify', 'https://open.spotify.com', 'Music streaming service', '🎵', true],
+                ['youtube', 'YouTube', 'https://www.youtube.com', 'Video streaming platform', '📺', false],
+                ['spotify', 'Spotify', 'https://open.spotify.com', 'Music streaming service', '🎵', false],
                 ['netflix', 'Netflix', 'https://www.netflix.com', 'Movie and TV streaming', '🎬', false],
-                ['gemini', 'Gemini AI', 'https://gemini.google.com', 'Google AI assistant', '✨', false],
+                ['gemini', 'Gemini AI', 'https://gemini.google.com/app', 'Google AI assistant', '✨', false],
                 ['chatgpt', 'ChatGPT', 'https://chat.openai.com', 'OpenAI chatbot', '🤖', false]
             ];
 
@@ -237,8 +298,8 @@ class Database {
                 ]);
             }
 
-            // Update existing YouTube and Spotify services to require user credentials
-            $conn->exec("UPDATE services SET requires_user_credentials = TRUE WHERE service_type IN ('youtube', 'spotify')");
+            // Update all existing services to use admin pre-login (shared session)
+            $conn->exec("UPDATE services SET requires_user_credentials = FALSE");
 
             // Insert default extensions
             $extensions = [

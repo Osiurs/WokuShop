@@ -1,19 +1,22 @@
 <?php
 require_once 'database.php';
+require_once __DIR__ . '/env.php';
 
 class Auth {
     private $db;
-    private $secret_key = "wokushop_secret_key_2024"; // Change this in production
+    private $secret_key;
 
     public function __construct() {
         $database = new Database();
         $this->db = $database->getConnection();
+        $this->secret_key = Env::get('JWT_SECRET', 'wokushop_secret_key_2024');
     }
 
     // Generate JWT token
     public function generateToken($userId, $username, $role) {
         $issuedAt = time();
-        $expirationTime = $issuedAt + (3600 * 24); // 24 hours
+        $expiry = (int) Env::get('JWT_EXPIRY', 86400); // Default 24 hours
+        $expirationTime = $issuedAt + $expiry;
 
         $payload = [
             'iat' => $issuedAt,
@@ -50,12 +53,11 @@ class Auth {
             return null;
         }
 
-        $header = base64_decode($tokenParts[0]);
-        $payload = base64_decode($tokenParts[1]);
+        $base64UrlHeader = $tokenParts[0];
+        $base64UrlPayload = $tokenParts[1];
         $signatureProvided = $tokenParts[2];
 
-        $base64UrlHeader = $this->base64UrlEncode($header);
-        $base64UrlPayload = $this->base64UrlEncode($payload);
+        // Verify signature
         $signature = hash_hmac('sha256', $base64UrlHeader . "." . $base64UrlPayload, $this->secret_key, true);
         $base64UrlSignature = $this->base64UrlEncode($signature);
 
@@ -63,9 +65,11 @@ class Auth {
             return null;
         }
 
+        // Decode payload
+        $payload = base64_decode(strtr($base64UrlPayload, '-_', '+/'));
         $payload = json_decode($payload);
 
-        if ($payload->exp < time()) {
+        if (!$payload || $payload->exp < time()) {
             return null;
         }
 
@@ -78,13 +82,47 @@ class Auth {
 
     // Verify token from request
     public function verifyToken() {
-        $headers = getallheaders();
-        $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : '';
+        $authHeader = '';
+
+        // WORKAROUND for Cloudflare stripping Authorization header
+        // Try X-Auth-Token first (custom header that Cloudflare doesn't strip)
+        if (function_exists('getallheaders')) {
+            $headers = getallheaders();
+
+            // Method 0: Custom header (Cloudflare-safe)
+            if (isset($headers['X-Auth-Token']) && !empty($headers['X-Auth-Token'])) {
+                // X-Auth-Token contains token directly (no "Bearer " prefix)
+                return $this->decode($headers['X-Auth-Token']);
+            }
+            if (isset($headers['x-auth-token']) && !empty($headers['x-auth-token'])) {
+                return $this->decode($headers['x-auth-token']);
+            }
+
+            // Method 1: Standard Authorization header
+            $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] :
+                         (isset($headers['authorization']) ? $headers['authorization'] : '');
+        }
+
+        // Method 2: Apache-specific
+        if (empty($authHeader) && isset($_SERVER['HTTP_AUTHORIZATION'])) {
+            $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+        }
+
+        // Method 3: nginx-specific
+        if (empty($authHeader) && isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+            $authHeader = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+        }
+
+        // Method 4: Custom header via $_SERVER
+        if (empty($authHeader) && isset($_SERVER['HTTP_X_AUTH_TOKEN'])) {
+            return $this->decode($_SERVER['HTTP_X_AUTH_TOKEN']);
+        }
 
         if (empty($authHeader)) {
             return null;
         }
 
+        // Parse "Bearer <token>" format
         $arr = explode(" ", $authHeader);
         $jwt = isset($arr[1]) ? $arr[1] : '';
 
@@ -132,6 +170,28 @@ class Auth {
             die();
         }
         return $user;
+    }
+
+    public function getTokenFromHeaders() {
+        $authHeader = '';
+        if (function_exists('getallheaders')) {
+            $headers = getallheaders();
+            if (isset($headers['X-Auth-Token']) && !empty($headers['X-Auth-Token'])) {
+                return $headers['X-Auth-Token'];
+            }
+            if (isset($headers['x-auth-token']) && !empty($headers['x-auth-token'])) {
+                return $headers['x-auth-token'];
+            }
+            $authHeader = $headers['Authorization'] ?? ($headers['authorization'] ?? '');
+        }
+        if (empty($authHeader) && isset($_SERVER['HTTP_AUTHORIZATION'])) {
+            $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+        }
+        if (empty($authHeader)) {
+            return null;
+        }
+        $arr = explode(" ", $authHeader);
+        return $arr[1] ?? null;
     }
 }
 ?>

@@ -25,6 +25,9 @@ try {
 
     // For each service, fetch its allowed domains and extensions
     foreach ($services as &$service) {
+        // Add alias for frontend compatibility
+        $service['requires_login'] = (int)$service['requires_user_credentials'];
+
         // Fetch allowed domains
         $domainQuery = "SELECT domain FROM domain_restrictions WHERE service_type = :service_type ORDER BY domain ASC";
         $domainStmt = $db->prepare($domainQuery);

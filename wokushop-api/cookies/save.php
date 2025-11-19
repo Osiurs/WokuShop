@@ -6,43 +6,44 @@ $database = new Database();
 $db = $database->getConnection();
 $auth = new Auth();
 
-// Verify authentication (user or admin)
+// Verify authentication
 $user = $auth->requireAuth();
 
 // Get posted data
 $data = json_decode(file_get_contents("php://input"));
 
-if (empty($data->account_id) || empty($data->user_id) || empty($data->chat_id)) {
+if (empty($data->account_id) || !isset($data->cookies)) {
     http_response_code(400);
     echo json_encode([
         "success" => false,
-        "message" => "Account ID, User ID, and Chat ID are required."
+        "message" => "Account ID and cookies are required."
     ]);
     exit();
 }
 
 try {
-    $query = "INSERT INTO chat_locks (account_id, user_id, chat_id)
-             VALUES (:account_id, :user_id, :chat_id)";
-
+    $query = "INSERT INTO service_account_cookies (account_id, cookies) 
+              VALUES (:account_id, :cookies) 
+              ON DUPLICATE KEY UPDATE cookies = :cookies";
+    
     $stmt = $db->prepare($query);
+    
     $stmt->execute([
         'account_id' => $data->account_id,
-        'user_id' => $data->user_id,
-        'chat_id' => $data->chat_id
+        'cookies' => json_encode($data->cookies)
     ]);
 
-    http_response_code(201);
+    http_response_code(200);
     echo json_encode([
         "success" => true,
-        "message" => "Chat lock created successfully.",
-        "id" => $db->lastInsertId()
+        "message" => "Cookies saved successfully."
     ]);
+
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode([
         "success" => false,
-        "message" => "Failed to create chat lock: " . $e->getMessage()
+        "message" => "Failed to save cookies: " . $e->getMessage()
     ]);
 }
 ?>

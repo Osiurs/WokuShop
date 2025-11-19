@@ -1,20 +1,17 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
 /**
- * Login API - Uses UnifiedSessionManager for session management
- * Enforces single session per user when STRATEGY_STRICT is enabled
+ * Strict Login API - Uses StrictSessionManager
+ * Only ONE active session per user allowed
  */
 require_once '../config/database.php';
 require_once '../config/auth.php';
-require_once '../config/unified-session-manager.php';
+require_once '../config/strict-session-manager.php';
 require_once '../config/ip-helper.php';
 
 $database = new Database();
 $db = $database->getConnection();
 $auth = new Auth();
-$sessionManager = new UnifiedSessionManager($database);
+$sessionManager = new StrictSessionManager($database);
 
 // Get posted data
 $data = json_decode(file_get_contents("php://input"));
@@ -39,27 +36,26 @@ try {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (password_verify($data->password, $row['password'])) {
-            // Get current IP address
+
+            // Get current IP
             $currentIP = IPHelper::getRealIP();
 
-            // Check if user can login (enforces single session in STRICT mode)
+            // Check if user can login (STRICT MODE)
             $loginCheck = $sessionManager->canUserLogin($row['id'], $currentIP);
 
             if (!$loginCheck['allowed']) {
-                // User has active session - block login
                 http_response_code(409); // Conflict
                 echo json_encode([
                     "success" => false,
                     "message" => $loginCheck['reason'],
-                    "error_code" => "ACTIVE_SESSION_EXISTS",
                     "existing_session" => [
-                        "ip" => $loginCheck['existing_ip'] ?? 'N/A',
-                        "since" => $loginCheck['existing_since'] ?? 'N/A',
-                        "last_activity" => $loginCheck['last_activity'] ?? 'N/A',
-                        "instructions" => $loginCheck['instructions'] ?? 'Please logout from other device first'
+                        "ip" => $loginCheck['existing_ip'],
+                        "since" => $loginCheck['existing_since'],
+                        "last_activity" => $loginCheck['last_activity'],
+                        "instructions" => $loginCheck['instructions']
                     ],
-                    "strategy" => $loginCheck['strategy'] ?? 'unknown',
-                    "strategy_description" => $loginCheck['strategy_description'] ?? ''
+                    "error_code" => "ACTIVE_SESSION_EXISTS",
+                    "mode" => "strict"
                 ]);
                 exit();
             }
@@ -67,23 +63,23 @@ try {
             // Generate token
             $token = $auth->generateToken($row['id'], $row['username'], $row['role']);
 
-            // Create session using UnifiedSessionManager
+            // Create session using StrictSessionManager
             $sessionResult = $sessionManager->createSession($row['id'], $token, $currentIP);
 
             if (!$sessionResult['success']) {
                 http_response_code(500);
                 echo json_encode([
                     "success" => false,
-                    "message" => "Failed to create session: " . ($sessionResult['error'] ?? 'Unknown error')
+                    "message" => "Failed to create session: " . $sessionResult['error']
                 ]);
                 exit();
             }
 
             // Fetch assigned accounts for the user
             $accountsQuery = "SELECT a.id, a.service_name, a.service_type, a.description, a.partition_id
-                              FROM accounts a
-                              INNER JOIN user_accounts ua ON a.id = ua.account_id
-                              WHERE ua.user_id = :user_id AND ua.is_active = 1";
+                             FROM user_accounts ua
+                             JOIN accounts a ON ua.account_id = a.id
+                             WHERE ua.user_id = :user_id AND ua.is_active = 1";
             $accountsStmt = $db->prepare($accountsQuery);
             $accountsStmt->execute(['user_id' => $row['id']]);
             $accounts = $accountsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -92,7 +88,7 @@ try {
             http_response_code(200);
             echo json_encode([
                 "success" => true,
-                "message" => "Login successful.",
+                "message" => "Login successful (STRICT MODE)",
                 "token" => $token,
                 "user" => [
                     "id" => $row['id'],
@@ -103,39 +99,36 @@ try {
                 "session_info" => [
                     "ip_address" => IPHelper::maskIP($currentIP),
                     "login_time" => date('Y-m-d H:i:s'),
-                    "session_id" => $sessionResult['session_id'] ?? null,
+                    "session_id" => $sessionResult['session_id'],
                     "device_fingerprint" => IPHelper::generateDeviceFingerprint(),
                     "user_agent" => IPHelper::getUserAgent(),
-                    "reason" => $loginCheck['reason'] ?? 'New session created',
-                    "strategy" => $sessionResult['strategy'] ?? 'unknown',
-                    "strategy_description" => $sessionResult['strategy_description'] ?? ''
+                    "reason" => $loginCheck['reason'],
+                    "mode" => "strict",
+                    "note" => "Only one session allowed per user"
                 ]
             ]);
+
         } else {
             http_response_code(401);
             echo json_encode([
                 "success" => false,
-                "message" => "Invalid username or password."
+                "message" => "Invalid credentials."
             ]);
         }
     } else {
         http_response_code(401);
         echo json_encode([
             "success" => false,
-            "message" => "Invalid username or password."
+            "message" => "Invalid credentials."
         ]);
     }
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode([
-        "success" => false,
-        "message" => "Login failed: " . $e->getMessage()
-    ]);
+
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
         "success" => false,
-        "message" => "Login failed: " . $e->getMessage()
+        "message" => "Database error occurred.",
+        "error" => $e->getMessage()
     ]);
 }
 ?>

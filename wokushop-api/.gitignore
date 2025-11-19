@@ -1,4 +1,9 @@
-# Configuration files with credentials
+# Environment configuration
+.env
+.env.local
+.env.*.local
+
+# Configuration files with credentials (legacy - now using .env)
 config/database.php
 
 # Logs

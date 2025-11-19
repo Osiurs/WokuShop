@@ -6,8 +6,8 @@ $database = new Database();
 $db = $database->getConnection();
 $auth = new Auth();
 
-// Verify admin authentication
-$user = $auth->requireAdmin();
+// Verify authentication (user or admin)
+$user = $auth->requireAuth();
 
 try {
     $query = "SELECT cl.*, a.service_name as account_name, u.username
