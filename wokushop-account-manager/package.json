@@ -65,7 +65,7 @@
       "target": [
         "dmg"
       ],
-      "icon": "src/assets/images/logo.icns"
+      "icon": "src/assets/images/logo.png"
     },
     "linux": {
       "target": [
