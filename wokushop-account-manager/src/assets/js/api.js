@@ -257,6 +257,50 @@ class API {
     }
   }
 
+  async getAccountUserCounts() {
+    try {
+      // Try new optimized endpoint first
+      const response = await axios.get(`${this.baseURL}/accounts/assigned-users.php`, {
+        headers: this.getAuthHeaders()
+      });
+      return response.data; // { success: true, data: { [account_id]: count } }
+    } catch (error) {
+      // Fallback: If endpoint doesn't exist (404), use old method
+      if (error.response && error.response.status === 404) {
+        console.warn('⚠️ New endpoint not available, using fallback method');
+        try {
+          const usersResponse = await this.getUsers();
+          const users = usersResponse.data || [];
+          const allAssignments = await Promise.all(
+            users.map(user => this.getUserAccounts(user.id))
+          );
+
+          const userCounts = {};
+          allAssignments.forEach(assignmentResponse => {
+            const assignedAccounts = assignmentResponse.data || [];
+            assignedAccounts.forEach(account => {
+              if (userCounts[account.id]) {
+                userCounts[account.id]++;
+              } else {
+                userCounts[account.id] = 1;
+              }
+            });
+          });
+
+          return { success: true, data: userCounts };
+        } catch (fallbackError) {
+          console.error('Fallback method also failed:', fallbackError);
+          // Return empty counts instead of throwing error
+          return { success: true, data: {} };
+        }
+      }
+      
+      // For other errors, log and return empty
+      console.error('Error getting account user counts:', error);
+      return { success: true, data: {} };
+    }
+  }
+
   // Usage log methods
   async getUsageLogs(limit = 50) {
     try {

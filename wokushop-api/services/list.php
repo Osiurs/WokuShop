@@ -13,14 +13,40 @@ try {
     // Fetch all services (with optional filter for active only)
     $activeOnly = isset($_GET['active_only']) && $_GET['active_only'] === 'true';
 
+    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+    $query = "
+        SELECT 
+            s.*, 
+            COUNT(DISTINCT ua.user_id) as assigned_users_count
+        FROM 
+            services s
+        LEFT JOIN 
+            accounts a ON s.service_type = a.service_type
+        LEFT JOIN 
+            user_assignments ua ON a.id = ua.account_id
+    ";
+
+    $whereClauses = [];
+    $params = [];
+
     if ($activeOnly) {
-        $query = "SELECT * FROM services WHERE is_active = 1 ORDER BY display_name ASC";
-    } else {
-        $query = "SELECT * FROM services ORDER BY display_name ASC";
+        $whereClauses[] = "s.is_active = 1";
     }
 
+    if (!empty($search)) {
+        $whereClauses[] = "s.display_name LIKE :search";
+        $params[':search'] = '%' . $search . '%';
+    }
+
+    if (count($whereClauses) > 0) {
+        $query .= " WHERE " . implode(' AND ', $whereClauses);
+    }
+
+    $query .= " GROUP BY s.id ORDER BY s.display_name ASC";
+
     $stmt = $db->prepare($query);
-    $stmt->execute();
+    $stmt->execute($params);
     $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // For each service, fetch its allowed domains and extensions

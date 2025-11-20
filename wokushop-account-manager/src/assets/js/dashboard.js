@@ -1,4 +1,6 @@
 // Use ipcRenderer from window (set by api.js)
+let allAccounts = [];
+let allUsers = [];
 
 // Get current user
 const currentUser = api.getCurrentUser();
@@ -62,10 +64,7 @@ function navigateToPage(page) {
       pageTitle.textContent = 'Chat Lock Management';
       loadChatLock();
       break;
-    case 'deployment':
-      pageTitle.textContent = 'Server Deployment';
-      loadDeployment();
-      break;
+
   }
 }
 
@@ -125,110 +124,120 @@ async function loadDashboard() {
 // Load Accounts
 async function loadAccounts() {
   contentArea.innerHTML = '<div class="loading">Loading accounts...</div>';
+  const isAdmin = currentUser.role === 'admin';
+
+  contentArea.innerHTML = `
+    ${isAdmin ? `
+      <div class="accounts-header">
+        <h2>Manage Accounts</h2>
+        <button class="btn btn-primary" id="addAccountBtn">+ Add Account</button>
+      </div>
+    ` : ''}
+    <div class="page-controls">
+      <input type="text" id="accountSearchInput" class="search-input" placeholder="🔎 Search accounts by name...">
+    </div>
+    <div class="accounts-grid" id="accountsGrid"></div>
+  `;
 
   try {
-    const response = await api.getAccounts();
-    const accounts = response.data || [];
+    const [accountsResponse, userCountsResponse] = await Promise.all([
+      api.getAccounts(),
+      isAdmin ? api.getAccountUserCounts() : Promise.resolve({ data: {} })
+    ]);
 
-    const isAdmin = currentUser.role === 'admin';
+    allAccounts = accountsResponse.data || [];
+    const userCounts = userCountsResponse.data || {};
 
-    contentArea.innerHTML = `
-      ${isAdmin ? `
-        <div class="accounts-header">
-          <h2>Manage Accounts</h2>
-          <button class="btn btn-primary" id="addAccountBtn">+ Add Account</button>
-        </div>
-      ` : ''}
+    renderAccounts(allAccounts, userCounts);
 
-      <div class="accounts-grid" id="accountsGrid"></div>
-    `;
-
-    const accountsGrid = document.getElementById('accountsGrid');
-
-    if (accounts.length === 0) {
-      const currentUser = window.ipcRenderer.sendSync('get-store-value', 'currentUser');
-      let message = '<div class="empty-state"><i>📦</i>';
-
-      if (currentUser && currentUser.role === 'admin') {
-        message += '<p>No accounts created yet</p><p>Click "Add Account" to create one</p>';
-      } else if (currentUser) {
-        message += `<p>No accounts assigned to you</p><p>Contact administrator for access</p><p><small>Logged in as: ${currentUser.username} (ID: ${currentUser.id})</small></p>`;
-      } else {
-        message += '<p>Authentication error</p><p>Please login again</p>';
-      }
-
-      message += '<p><small>Server: https://db.handymancode.com/api/wokushop-api</small></p></div>';
-      accountsGrid.innerHTML = message;
-    } else {
-      accountsGrid.innerHTML = accounts.map(account => `
-        <div class="account-card">
-          <span class="account-type">${account.service_type}</span>
-          <h3>${account.service_name}</h3>
-          <p style="color: var(--text-secondary); margin-bottom: 15px;">${account.description || 'No description'}</p>
-          <div class="account-actions">
-            <button class="btn btn-success btn-small launch-account" data-account='${JSON.stringify(account)}'>
-              Launch Session
-            </button>
-            ${isAdmin ? `
-              <button class="btn btn-info btn-small backup-session" data-id="${account.id}" data-partition="${account.partition_id}" title="Backup session to server">
-                💾 Backup
-              </button>
-              <button class="btn btn-warning btn-small restore-session" data-id="${account.id}" data-partition="${account.partition_id}" data-service-type="${account.service_type}" title="Restore session from server">
-                ♻️ Restore
-              </button>
-              <button class="btn btn-secondary btn-small edit-account" data-id="${account.id}">Edit</button>
-              <button class="btn btn-danger btn-small delete-account" data-id="${account.id}">Delete</button>
-            ` : ''}
-          </div>
-        </div>
-      `).join('');
-
-      // Add event listeners for launch buttons
-      document.querySelectorAll('.launch-account').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const account = JSON.parse(e.target.getAttribute('data-account'));
-          await launchAccountSession(account);
-        });
-      });
-
-      if (isAdmin) {
-        // Add event listeners for backup buttons
-        document.querySelectorAll('.backup-session').forEach(btn => {
-          btn.addEventListener('click', async (e) => {
-            const accountId = parseInt(e.target.getAttribute('data-id'));
-            const partitionId = e.target.getAttribute('data-partition');
-            await backupSession(accountId, partitionId);
-          });
-        });
-
-        // Add event listeners for restore buttons
-        document.querySelectorAll('.restore-session').forEach(btn => {
-          btn.addEventListener('click', async (e) => {
-            const accountId = parseInt(e.target.getAttribute('data-id'));
-            const partitionId = e.target.getAttribute('data-partition');
-            const serviceType = e.target.getAttribute('data-service-type');
-            await restoreSession(accountId, partitionId, serviceType);
-          });
-        });
-
-        // Add event listeners for delete buttons
-        document.querySelectorAll('.delete-account').forEach(btn => {
-          btn.addEventListener('click', async (e) => {
-            const accountId = e.target.getAttribute('data-id');
-            if (confirm('Are you sure you want to delete this account?')) {
-              await deleteAccount(accountId);
-            }
-          });
-        });
-      }
-    }
+    document.getElementById('accountSearchInput').addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      const filteredAccounts = allAccounts.filter(acc => acc.service_name.toLowerCase().includes(searchTerm));
+      renderAccounts(filteredAccounts, userCounts);
+    });
 
     if (isAdmin) {
       document.getElementById('addAccountBtn').addEventListener('click', openAddAccountModal);
     }
   } catch (error) {
     console.error('Error loading accounts:', error);
-    contentArea.innerHTML = `<div class="empty-state"><p>Error loading accounts: ${error.message}</p></div>`;
+    document.getElementById('accountsGrid').innerHTML = `<div class="empty-state"><p>Error loading accounts: ${error.message}</p></div>`;
+  }
+}
+
+function renderAccounts(accounts, userCounts = {}) {
+  const accountsGrid = document.getElementById('accountsGrid');
+  const isAdmin = currentUser.role === 'admin';
+
+  if (accounts.length === 0) {
+    const currentUser = window.ipcRenderer.sendSync('get-store-value', 'currentUser');
+    let message = '<div class="empty-state"><i>📦</i>';
+    if (document.getElementById('accountSearchInput').value) {
+      message += '<p>No accounts match your search</p>';
+    } else if (currentUser && currentUser.role === 'admin') {
+      message += '<p>No accounts created yet</p><p>Click "Add Account" to create one</p>';
+    } else if (currentUser) {
+      message += `<p>No accounts assigned to you</p><p>Contact administrator for access</p><p><small>Logged in as: ${currentUser.username} (ID: ${currentUser.id})</small></p>`;
+    } else {
+      message += '<p>Authentication error</p><p>Please login again</p>';
+    }
+    message += '<p><small>Server: https://db.handymancode.com/api/wokushop-api</small></p></div>';
+    accountsGrid.innerHTML = message;
+    return;
+  }
+
+  accountsGrid.innerHTML = accounts.map(account => `
+    <div class="account-card">
+      <div class="account-card-header">
+        <span class="account-type">${account.service_type}</span>
+        ${isAdmin ? `
+        <div class="account-user-count" title="Users assigned to this account">
+          👥 <span>${userCounts[account.id] || 0}</span>
+        </div>
+        ` : ''}
+      </div>
+      <h3>${account.service_name}</h3>
+      <p style="color: var(--text-secondary); margin-bottom: 15px;">${account.description || 'No description'}</p>
+      <div class="account-actions">
+        <button class="btn btn-success btn-small launch-account" data-account='${JSON.stringify(account)}'>
+          Launch Session
+        </button>
+        ${isAdmin ? `
+          <button class="btn btn-secondary btn-small edit-account" data-id="${account.id}">Edit</button>
+          <button class="btn btn-danger btn-small delete-account" data-id="${account.id}">Delete</button>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  // Add event listeners
+  document.querySelectorAll('.launch-account').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const account = JSON.parse(e.currentTarget.getAttribute('data-account'));
+      await launchAccountSession(account);
+    });
+  });
+
+  if (isAdmin) {
+    document.querySelectorAll('.backup-session').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const { id, partition } = e.currentTarget.dataset;
+        backupSession(parseInt(id), partition);
+      });
+    });
+    document.querySelectorAll('.restore-session').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const { id, partition, serviceType } = e.currentTarget.dataset;
+        restoreSession(parseInt(id), partition, serviceType);
+      });
+    });
+    document.querySelectorAll('.delete-account').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        if (confirm('Are you sure you want to delete this account?')) {
+          deleteAccount(e.currentTarget.dataset.id);
+        }
+      });
+    });
   }
 }
 
@@ -539,88 +548,99 @@ async function deleteAccount(accountId) {
 async function loadUsers() {
   contentArea.innerHTML = '<div class="loading">Loading users...</div>';
 
+  contentArea.innerHTML = `
+    <div class="accounts-header">
+      <h2>Manage Users</h2>
+      <button class="btn btn-primary" id="addUserBtn">+ Add User</button>
+    </div>
+    <div class="page-controls">
+      <input type="text" id="userSearchInput" class="search-input" placeholder="🔎 Search users by username...">
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="usersTableBody"></tbody>
+      </table>
+    </div>
+  `;
+
   try {
     const response = await api.getUsers();
-    const users = response.data || [];
+    allUsers = response.data || [];
+    renderUsers(allUsers);
 
-    contentArea.innerHTML = `
-      <div class="accounts-header">
-        <h2>Manage Users</h2>
-        <button class="btn btn-primary" id="addUserBtn">+ Add User</button>
-      </div>
-
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Username</th>
-              <th>Role</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="usersTableBody"></tbody>
-        </table>
-      </div>
-    `;
-
-    const tbody = document.getElementById('usersTableBody');
-
-    if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No users found</td></tr>';
-    } else {
-      tbody.innerHTML = users.map(user => `
-        <tr>
-          <td>${user.id}</td>
-          <td>${user.username}</td>
-          <td><span class="badge badge-${user.role}">${user.role}</span></td>
-          <td>${formatDate(user.created_at)}</td>
-          <td>
-            ${user.role !== 'admin' ? `
-              <button class="btn btn-success btn-small login-as-user" data-id="${user.id}" data-username="${user.username}">Login as User</button>
-            ` : ''}
-            <button class="btn btn-secondary btn-small assign-accounts" data-id="${user.id}">Assign Accounts</button>
-            ${user.id !== currentUser.id ? `
-              <button class="btn btn-danger btn-small delete-user" data-id="${user.id}">Delete</button>
-            ` : ''}
-          </td>
-        </tr>
-      `).join('');
-
-      // Add event listeners
-      document.querySelectorAll('.login-as-user').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const userId = e.target.getAttribute('data-id');
-          const username = e.target.getAttribute('data-username');
-          if (confirm(`Are you sure you want to login as "${username}"?\n\nYou will be logged out from your admin account and logged in as this user.`)) {
-            await loginAsUser(userId);
-          }
-        });
-      });
-
-      document.querySelectorAll('.delete-user').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const userId = e.target.getAttribute('data-id');
-          if (confirm('Are you sure you want to delete this user?')) {
-            await deleteUser(userId);
-          }
-        });
-      });
-
-      document.querySelectorAll('.assign-accounts').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const userId = e.target.getAttribute('data-id');
-          await openAssignAccountsModal(userId);
-        });
-      });
-    }
+    document.getElementById('userSearchInput').addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      const filteredUsers = allUsers.filter(user => user.username.toLowerCase().includes(searchTerm));
+      renderUsers(filteredUsers);
+    });
 
     document.getElementById('addUserBtn').addEventListener('click', openAddUserModal);
   } catch (error) {
     console.error('Error loading users:', error);
-    contentArea.innerHTML = `<div class="empty-state"><p>Error loading users: ${error.message}</p></div>`;
+    document.getElementById('usersTableBody').innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Error loading users: ${error.message}</p></div></td></tr>`;
   }
+}
+
+function renderUsers(users) {
+  const tbody = document.getElementById('usersTableBody');
+
+  if (users.length === 0) {
+    const searchTerm = document.getElementById('userSearchInput').value;
+    const message = searchTerm ? 'No users match your search' : 'No users found';
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">${message}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = users.map(user => `
+    <tr>
+      <td>${user.id}</td>
+      <td>${user.username}</td>
+      <td><span class="badge badge-${user.role}">${user.role}</span></td>
+      <td>${formatDate(user.created_at)}</td>
+      <td>
+        ${user.role !== 'admin' ? `
+          <button class="btn btn-success btn-small login-as-user" data-id="${user.id}" data-username="${user.username}">Login as User</button>
+        ` : ''}
+        <button class="btn btn-secondary btn-small assign-accounts" data-id="${user.id}">Assign Accounts</button>
+        ${user.id !== currentUser.id ? `
+          <button class="btn btn-danger btn-small delete-user" data-id="${user.id}">Delete</button>
+        ` : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  // Add event listeners
+  document.querySelectorAll('.login-as-user').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const { id, username } = e.currentTarget.dataset;
+      if (confirm(`Are you sure you want to login as "${username}"?\n\nYou will be logged out from your admin account and logged in as this user.`)) {
+        loginAsUser(id);
+      }
+    });
+  });
+
+  document.querySelectorAll('.delete-user').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      if (confirm('Are you sure you want to delete this user?')) {
+        deleteUser(e.currentTarget.dataset.id);
+      }
+    });
+  });
+
+  document.querySelectorAll('.assign-accounts').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      openAssignAccountsModal(e.currentTarget.dataset.id);
+    });
+  });
 }
 
 // Delete user

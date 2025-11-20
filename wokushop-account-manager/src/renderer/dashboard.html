@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://db.handymancode.com">
   <title>Dashboard - Woku App</title>
   <link rel="stylesheet" href="../assets/css/styles.css">
 </head>
@@ -49,21 +50,10 @@
           <i>🔒</i>
           <span>Chat Lock</span>
         </div>
-        <div class="nav-item admin-only" data-page="deployment">
-          <i>🚀</i>
-          <span>Deployment</span>
-        </div>
+
       </nav>
 
       <div class="sidebar-footer">
-        <div class="session-sync-controls">
-          <button class="btn btn-primary btn-small" id="sessionSyncBtn" onclick="performSessionSync()" title="Synchronize session across devices">
-            <i>🔄</i> Sync Session
-          </button>
-          <button class="btn btn-secondary btn-small" id="sessionValidateBtn" onclick="validateSession()" title="Validate current session status">
-            <i>🔍</i> Validate
-          </button>
-        </div>
         <button class="btn btn-logout" id="logoutBtn">
           <i>🚪</i> Logout
         </button>

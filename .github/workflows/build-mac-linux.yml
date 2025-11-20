@@ -1,0 +1,112 @@
+name: Build installers (macOS + Linux)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'wokushop-account-manager/**'
+      - '.github/workflows/build-mac-linux.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'wokushop-account-manager/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            buildcmd: npm run build:mac --if-present
+            artifact_suffix: mac
+          - os: ubuntu-latest
+            buildcmd: npm run build:linux --if-present
+            artifact_suffix: linux
+
+    defaults:
+      run:
+        working-directory: wokushop-account-manager
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: |
+            wokushop-account-manager/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare macOS icon (.icns)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -e
+          ICON_PNG="src/assets/images/logo.png"
+          ICON_ICNS="src/assets/images/logo.icns"
+          if [ -f "$ICON_ICNS" ]; then
+            echo "Found logo.icns, skipping conversion"
+            exit 0
+          fi
+          if [ ! -f "$ICON_PNG" ]; then
+            echo "logo.png not found at $ICON_PNG" >&2
+            exit 1
+          fi
+          echo "Generating .icns from .png ..."
+          mkdir -p logo.iconset
+          sips -z 16 16     "$ICON_PNG" --out logo.iconset/icon_16x16.png
+          sips -z 32 32     "$ICON_PNG" --out logo.iconset/icon_16x16@2x.png
+          sips -z 32 32     "$ICON_PNG" --out logo.iconset/icon_32x32.png
+          sips -z 64 64     "$ICON_PNG" --out logo.iconset/icon_32x32@2x.png
+          sips -z 128 128   "$ICON_PNG" --out logo.iconset/icon_128x128.png
+          sips -z 256 256   "$ICON_PNG" --out logo.iconset/icon_128x128@2x.png
+          sips -z 256 256   "$ICON_PNG" --out logo.iconset/icon_256x256.png
+          sips -z 512 512   "$ICON_PNG" --out logo.iconset/icon_256x256@2x.png
+          sips -z 512 512   "$ICON_PNG" --out logo.iconset/icon_512x512.png
+          sips -z 1024 1024 "$ICON_PNG" --out logo.iconset/icon_512x512@2x.png
+          iconutil -c icns logo.iconset -o "$ICON_ICNS"
+          rm -rf logo.iconset
+          echo "Generated $ICON_ICNS"
+
+      - name: Build
+        run: ${{ matrix.buildcmd }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wokushop-installers-${{ matrix.artifact_suffix }}
+          path: |
+            wokushop-account-manager/dist/**/*
+          if-no-files-found: warn
+
+  release:
+    name: Publish Release (manual or on tag)
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**/Woku*.dmg
+            dist/**/Woku*.AppImage
+            dist/**/Woku*.deb
+            dist/**/Woku*.rpm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

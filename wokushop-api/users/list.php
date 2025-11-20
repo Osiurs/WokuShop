@@ -10,9 +10,20 @@ $auth = new Auth();
 $user = $auth->requireAdmin();
 
 try {
-    $query = "SELECT id, username, role, created_at, updated_at FROM users ORDER BY created_at DESC";
+    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+    $query = "SELECT id, username, role, created_at, updated_at FROM users";
+    $params = [];
+
+    if (!empty($search)) {
+        $query .= " WHERE username LIKE :search";
+        $params[':search'] = '%' . $search . '%';
+    }
+
+    $query .= " ORDER BY created_at DESC";
+
     $stmt = $db->prepare($query);
-    $stmt->execute();
+    $stmt->execute($params);
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     http_response_code(200);
