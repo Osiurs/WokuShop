@@ -2,9 +2,8 @@ name: Build Desktop (mac+linux multi-arch)
 
 on:
   push:
-    tags:
-      - 'v*'          # push tag v1.2.3 sẽ build
-  workflow_dispatch:    # chạy tay cũng được
+    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,23 +14,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS: build theo runner đúng kiến trúc
+          # macOS: tách rõ x64 vs arm64
           - name: macOS x64
-            runs-on: macos-13      # Intel (x64)
+            runs-on: macos-15      # đổi từ macos-13 → macos-15 (Intel)
             oskey: mac
             arch: x64
           - name: macOS arm64
-            runs-on: macos-latest  # Apple Silicon (arm64)
+            runs-on: macos-latest  # Apple Silicon
             oskey: mac
             arch: arm64
 
-          # Linux x64 native
+          # Linux
           - name: Linux x64
             runs-on: ubuntu-latest
             oskey: linux
             arch: x64
-
-          # Linux arm64 cross-compile (QEMU + Docker)
           - name: Linux arm64
             runs-on: ubuntu-latest
             oskey: linux
@@ -45,7 +42,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Use Node.js 20
+      - name: Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -53,45 +50,65 @@ jobs:
           cache-dependency-path: |
             wokushop-account-manager/package-lock.json
 
-      # Cài deps app
-      - name: Install app deps
-        working-directory: ./wokushop-account-manager
-        run: npm ci
+      # In nhanh cấu trúc và xác nhận file có mặt tại đúng chỗ
+      - name: Inspect repo layout
+        run: |
+          echo "PWD=$(pwd)"
+          ls -la
+          echo "---- tree level 2 ----"
+          sudo apt-get update >/dev/null 2>&1 || true
+          (command -v tree >/dev/null || sudo apt-get install -y tree) || true
+          tree -L 2 || true
+          echo "---- show app package.json ----"
+          cat wokushop-account-manager/package.json || true
 
-      # Rebuild native deps (nếu có native modules)
+      # (Nếu app cần build API trước, bật block này)
+      # - name: Build API
+      #   working-directory: ./wokushop-api
+      #   run: |
+      #     if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+      #     npm run build
+
+      - name: Install app deps (safe)
+        working-directory: ./wokushop-account-manager
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
       - name: Rebuild native deps for Electron
         working-directory: ./wokushop-account-manager
-        run: npx electron-builder install-app-deps
+        run: npx electron-builder install-app-deps || true
 
-      # Tooling Linux để build deb/rpm
       - name: Linux tooling
         if: ${{ matrix.oskey == 'linux' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y fakeroot dpkg rpm libx11-dev libxkbfile-dev libudev-dev xz-utils
 
-      # Enable QEMU/Buildx cho linux arm64 cross
       - name: Enable QEMU (for cross-arch)
         if: ${{ matrix.cross == true }}
         uses: docker/setup-qemu-action@v3
-      - name: Enable Buildx
-        if: ${{ matrix.cross == true }}
-        uses: docker/setup-buildx-action@v3
 
-      - name: Build installers
+      - name: Build installers (verbose)
         working-directory: ./wokushop-account-manager
         env:
           USE_HARD_LINKS: "false"
-          CSC_IDENTITY_AUTO: 'false'   # macOS unsigned build để nhanh; muốn ký thì cấu hình secrets
+          ELECTRON_BUILDER_DOCKER: ${{ matrix.cross == true && 'true' || 'false' }}
         shell: bash
         run: |
+          set -e
+          echo "RUNNER_OS=$RUNNER_OS ARCH=${{ matrix.arch }} OSKEY=${{ matrix.oskey }}"
+          npx electron-builder --version
           if [[ "${{ matrix.oskey }}" == "mac" ]]; then
-            npx electron-builder --mac dmg zip --arch=${{ matrix.arch }} --publish never
+            npx electron-builder --mac dmg zip --arch=${{ matrix.arch }} --publish=never --verbose
           else
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              npx electron-builder --linux AppImage deb rpm --arm64 --publish never
+              npx electron-builder --linux AppImage deb rpm --arm64 --publish=never --verbose
             else
-              npx electron-builder --linux AppImage deb rpm --x64 --publish never
+              npx electron-builder --linux AppImage deb rpm --x64  --publish=never --verbose
             fi
           fi
 
@@ -99,12 +116,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: WokuShop-${{ matrix.oskey }}-${{ matrix.arch }}
-          path: |
-            wokushop-account-manager/dist/**
+          path: wokushop-account-manager/dist/**
           if-no-files-found: error
 
-  # (Tuỳ chọn) Tạo GitHub Release và đính toàn bộ artifacts
   release:
+    if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
     steps:
