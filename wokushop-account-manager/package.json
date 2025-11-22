@@ -1,6 +1,6 @@
 {
   "name": "woku-app",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Desktop application for managing shared subscription accounts",
   "main": "src/main/main.js",
   "scripts": {
@@ -9,6 +9,7 @@
     "clear-cache": "node clear-cache.js",
     "fresh-start": "node clear-cache.js && electron .",
     "fresh-dev": "node clear-cache.js && electron . --dev",
+    "prepack": "echo '👉 Preparing build...' && exit 0",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
@@ -21,6 +22,10 @@
   ],
   "author": "WokuShop",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Osiurs/WokuShop.git"
+  },
   "devDependencies": {
     "electron": "^30.0.0-castlabs.1",
     "electron-builder": "^24.9.1"
@@ -28,7 +33,9 @@
   "dependencies": {
     "archiver": "^6.0.1",
     "axios": "^1.6.2",
+    "electron-log": "^5.1.5",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.2.1",
     "form-data": "^4.0.0",
     "node-machine-id": "^1.1.12",
     "unzipper": "^0.10.14"
@@ -36,14 +43,18 @@
   "build": {
     "appId": "com.wokushop.wokuapp",
     "productName": "Woku App",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "src/**/*",
       "public/**/*",
       "config/**/*",
-      "extensions/**/*"
+      "extensions/**/*",
+      "node_modules/**/*",
+      "package.json"
     ],
     "extraResources": [
       {
@@ -63,16 +74,26 @@
     },
     "mac": {
       "target": [
-        "dmg"
+        "dmg",
+        "zip"
       ],
       "icon": "src/assets/images/logo.icns",
-      "identity": null
+      "identity": null,
+      "category": "public.app-category.utilities"
     },
     "linux": {
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb",
+        "rpm"
       ],
-      "icon": "src/assets/images/logo.png"
+      "icon": "src/assets/images/logo.png",
+      "category": "Utility"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Osiurs",
+      "repo": "WokuShop"
     }
   }
 }
