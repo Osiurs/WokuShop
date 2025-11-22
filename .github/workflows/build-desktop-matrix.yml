@@ -1,0 +1,123 @@
+name: Build Desktop (mac+linux multi-arch)
+
+on:
+  push:
+    tags:
+      - 'v*'          # push tag v1.2.3 sẽ build
+  workflow_dispatch:    # chạy tay cũng được
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS: build theo runner đúng kiến trúc
+          - name: macOS x64
+            runs-on: macos-13      # Intel (x64)
+            oskey: mac
+            arch: x64
+          - name: macOS arm64
+            runs-on: macos-latest  # Apple Silicon (arm64)
+            oskey: mac
+            arch: arm64
+
+          # Linux x64 native
+          - name: Linux x64
+            runs-on: ubuntu-latest
+            oskey: linux
+            arch: x64
+
+          # Linux arm64 cross-compile (QEMU + Docker)
+          - name: Linux arm64
+            runs-on: ubuntu-latest
+            oskey: linux
+            arch: arm64
+            cross: true
+
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runs-on }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            wokushop-account-manager/package-lock.json
+
+      # Cài deps app
+      - name: Install app deps
+        working-directory: ./wokushop-account-manager
+        run: npm ci
+
+      # Rebuild native deps (nếu có native modules)
+      - name: Rebuild native deps for Electron
+        working-directory: ./wokushop-account-manager
+        run: npx electron-builder install-app-deps
+
+      # Tooling Linux để build deb/rpm
+      - name: Linux tooling
+        if: ${{ matrix.oskey == 'linux' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot dpkg rpm libx11-dev libxkbfile-dev libudev-dev xz-utils
+
+      # Enable QEMU/Buildx cho linux arm64 cross
+      - name: Enable QEMU (for cross-arch)
+        if: ${{ matrix.cross == true }}
+        uses: docker/setup-qemu-action@v3
+      - name: Enable Buildx
+        if: ${{ matrix.cross == true }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build installers
+        working-directory: ./wokushop-account-manager
+        env:
+          USE_HARD_LINKS: "false"
+          CSC_IDENTITY_AUTO: 'false'   # macOS unsigned build để nhanh; muốn ký thì cấu hình secrets
+        shell: bash
+        run: |
+          if [[ "${{ matrix.oskey }}" == "mac" ]]; then
+            npx electron-builder --mac dmg zip --arch=${{ matrix.arch }} --publish never
+          else
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+              npx electron-builder --linux AppImage deb rpm --arm64 --publish never
+            else
+              npx electron-builder --linux AppImage deb rpm --x64 --publish never
+            fi
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: WokuShop-${{ matrix.oskey }}-${{ matrix.arch }}
+          path: |
+            wokushop-account-manager/dist/**
+          if-no-files-found: error
+
+  # (Tuỳ chọn) Tạo GitHub Release và đính toàn bộ artifacts
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: ./artifacts/**/*
+          draft: false
+          prerelease: false
