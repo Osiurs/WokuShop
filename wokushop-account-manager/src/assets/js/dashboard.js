@@ -218,6 +218,8 @@ function renderAccounts(accounts, userCounts = {}) {
     });
   });
 
+
+
   if (isAdmin) {
     document.querySelectorAll('.backup-session').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -1162,6 +1164,52 @@ async function openManageDomainsModal(serviceType) {
             </li>
           `).join('')}
         </ul>
+// ==============================
+// Account Settings (per account)
+// ==============================
+function openAccountSettingsModal(accountId) {
+  const modal = document.getElementById('accountSettingsModal');
+  modal.dataset.accountId = accountId;
+
+  try {
+    const settings = window.ipcRenderer.sendSync('get-store-value', 'accountSettings') || {};
+    const cfg = settings[String(accountId)] || {};
+
+    document.getElementById('accSingleWindow').checked = cfg.singleWindow !== false; // default true
+    document.getElementById('accBlockSettings').checked = cfg.blockSettingsPages !== false; // default true
+  } catch (e) {
+    console.warn('[Settings] Failed to read store:', e.message);
+    document.getElementById('accSingleWindow').checked = true;
+    document.getElementById('accBlockSettings').checked = true;
+  }
+
+  modal.classList.add('show');
+}
+
+// Save button handler (modal)
+(function attachAccountSettingsSaveHandler() {
+  const btn = document.getElementById('saveAccountSettings');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const modal = document.getElementById('accountSettingsModal');
+    const accountId = modal.dataset.accountId;
+    if (!accountId) return;
+
+    try {
+      const settings = window.ipcRenderer.sendSync('get-store-value', 'accountSettings') || {};
+      settings[String(accountId)] = {
+        singleWindow: document.getElementById('accSingleWindow').checked,
+        blockSettingsPages: document.getElementById('accBlockSettings').checked
+      };
+      window.ipcRenderer.send('set-store-value', 'accountSettings', settings);
+      alert('Saved account settings.');
+      modal.classList.remove('show');
+    } catch (e) {
+      alert('Failed to save settings: ' + e.message);
+    }
+  });
+})();
+
       `;
 
       document.querySelectorAll('.delete-domain-btn').forEach(btn => {

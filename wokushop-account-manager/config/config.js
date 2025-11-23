@@ -38,6 +38,7 @@ module.exports = {
     NETFLIX: 'netflix',
     GEMINI: 'gemini',
     CHATGPT: 'chatgpt',
+    QUILLBOT: 'quillbot',
     CUSTOM: 'custom'
   },
 
@@ -47,6 +48,7 @@ module.exports = {
     spotify: ['spotify.com', 'www.spotify.com', 'open.spotify.com'],
     netflix: ['netflix.com', 'www.netflix.com'],
     gemini: ['gemini.google.com', 'aistudio.google.com', 'accounts.google.com', 'google.com', 'www.google.com', 'gstatic.com'],
-    chatgpt: ['chat.openai.com', 'chatgpt.com', 'auth0.openai.com', 'auth.openai.com']
+    chatgpt: ['chat.openai.com', 'chatgpt.com', 'auth0.openai.com', 'auth.openai.com'],
+    quillbot: ['quillbot.com', 'www.quillbot.com', 'app.quillbot.com', 'accounts.quillbot.com']
   }
 };

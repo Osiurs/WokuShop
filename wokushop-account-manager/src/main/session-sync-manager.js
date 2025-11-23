@@ -1,13 +1,33 @@
 const Store = require('electron-store');
 const axios = require('axios');
 const { machineIdSync } = require('node-machine-id');
-const { BrowserWindow, session } = require('electron');
+const { BrowserWindow, session, app } = require('electron');
 const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
 const sessionManager = require('./session-manager');
+
+// CRITICAL FIX: Use same store configuration as main.js
+const isDev = !app.isPackaged;
+const storeOptions = {
+  name: 'woku-app-store',
+  cwd: isDev 
+    ? path.join(app.getAppPath(), 'config') 
+    : path.join(app.getPath('userData'), 'config'),
+  clearInvalidConfig: true,
+  serialize: JSON.stringify,
+  deserialize: JSON.parse
+};
+
+// Ensure store directory exists
+const storeDir = storeOptions.cwd;
+if (!fs.existsSync(storeDir)) {
+  fs.mkdirSync(storeDir, { recursive: true });
+}
 
 class SessionSyncManager {
   constructor() {
-    this.store = new Store();
+    this.store = new Store(storeOptions);
     this.apiBase = 'https://db.handymancode.com/api/wokushop-api';
     this.machineId = null;
     this.sessionToken = null;

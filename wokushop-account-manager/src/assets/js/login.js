@@ -4,6 +4,7 @@
 const loginForm = document.getElementById('loginForm');
 const usernameInput = document.getElementById('username');
 const passwordInput = document.getElementById('password');
+const rememberMeCheckbox = document.getElementById('rememberMe');
 const loginBtn = document.getElementById('loginBtn');
 const alertBox = document.getElementById('alertBox');
 
@@ -48,6 +49,15 @@ loginForm.addEventListener('submit', async (e) => {
         // Silently fail activity logging
       }
 
+      // Handle "Remember me"
+      if (rememberMeCheckbox.checked) {
+        window.ipcRenderer.sendSync('set-store-value', 'rememberedUsername', username);
+        window.ipcRenderer.sendSync('set-store-value', 'rememberedPassword', password);
+      } else {
+        window.ipcRenderer.sendSync('delete-store-value', 'rememberedUsername');
+        window.ipcRenderer.sendSync('delete-store-value', 'rememberedPassword');
+      }
+
       // Navigate to dashboard
       setTimeout(() => {
         window.ipcRenderer.send('navigate-to-dashboard');
@@ -66,3 +76,21 @@ loginForm.addEventListener('submit', async (e) => {
 
 // Auto-focus username field
 usernameInput.focus();
+
+
+// On page load, check for a remembered username
+document.addEventListener('DOMContentLoaded', () => {
+  const rememberedUsername = window.ipcRenderer.sendSync('get-store-value', 'rememberedUsername');
+  const rememberedPassword = window.ipcRenderer.sendSync('get-store-value', 'rememberedPassword');
+
+  if (rememberedUsername && rememberedPassword) {
+    usernameInput.value = rememberedUsername;
+    passwordInput.value = rememberedPassword;
+    rememberMeCheckbox.checked = true;
+    // If both are filled, focus on the login button for one-click login
+    loginBtn.focus();
+  } else {
+    // Otherwise, focus on username
+    usernameInput.focus();
+  }
+});

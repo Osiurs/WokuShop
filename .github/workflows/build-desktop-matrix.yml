@@ -1,12 +1,10 @@
-name: Build Desktop (mac+linux multi-arch)
+name: Build Desktop (macOS + Linux Multi-Arch)
 
 on:
   push:
-    tags: ['v*']
-  workflow_dispatch:
-
-permissions:
-  contents: write
+    tags:
+      - 'v*'          # Trigger khi push tag v1.2.3
+  workflow_dispatch:    # Cho phép chạy thủ công
 
 jobs:
   build:
@@ -14,21 +12,23 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS: tách rõ x64 vs arm64
+          # macOS: build theo runner đúng kiến trúc
           - name: macOS x64
-            runs-on: macos-15      # Intel
+            runs-on: macos-13      # Intel (x64)
             oskey: mac
             arch: x64
           - name: macOS arm64
-            runs-on: macos-latest  # Apple Silicon
+            runs-on: macos-latest  # Apple Silicon (arm64)
             oskey: mac
             arch: arm64
 
-          # Linux
+          # Linux x64 native
           - name: Linux x64
             runs-on: ubuntu-latest
             oskey: linux
             arch: x64
+
+          # Linux arm64 cross-compile (QEMU + Docker)
           - name: Linux arm64
             runs-on: ubuntu-latest
             oskey: linux
@@ -38,78 +38,29 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runs-on }}
 
+    defaults:
+      run:
+        working-directory: wokushop-account-manager
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Node.js 20
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: 'npm'
           cache-dependency-path: |
-            WokuShop/wokushop-account-manager/package-lock.json
             wokushop-account-manager/package-lock.json
-            package-lock.json
 
-      # Tự phát hiện thư mục app: thử theo thứ tự
-      # 1) wokushop-account-manager
-      # 2) WokuShop/wokushop-account-manager (nếu repo root là WokuShop)
-      # 3) . (root)
-      - name: Detect app directory
-        id: detect
-        shell: bash
-        run: |
-          set -e
-          CANDIDATES=(
-            "wokushop-account-manager"
-            "WokuShop/wokushop-account-manager"
-            "."
-          )
-          APP_DIR=""
-          for d in "${CANDIDATES[@]}"; do
-            if [ -d "$d" ] && [ -f "$d/package.json" ]; then
-              APP_DIR="$d"
-              break
-            fi
-          done
-          if [ -z "$APP_DIR" ]; then
-            echo "❌ Could not find app directory containing package.json"
-            echo "PWD=$(pwd)" && ls -la
-            exit 1
-          fi
-          echo "✅ App directory = $APP_DIR"
-          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
-
-      - name: Inspect repo layout
-        shell: bash
-        run: |
-          echo "PWD=$(pwd)"; ls -la
-          if command -v apt-get >/dev/null 2>&1; then
-            sudo apt-get update >/dev/null 2>&1 || true
-            (command -v tree >/dev/null || sudo apt-get install -y tree) || true
-          fi
-          tree -L 2 || true
-          echo "---- show app package.json ($APP_DIR) ----"
-          cat "$APP_DIR/package.json" || true
-
-      - name: Install app deps (safe)
-        working-directory: ${{ env.APP_DIR }}
-        shell: bash
-        run: |
-          node -v
-          npm -v
-          if [ -f package-lock.json ]; then
-            npm ci || (echo "npm ci failed due to lock mismatch; falling back to npm install" && npm install --no-audit --no-fund)
-          else
-            npm install --no-audit --no-fund
-          fi
+      - name: Install app dependencies
+        run: npm ci
 
       - name: Rebuild native deps for Electron
-        working-directory: ${{ env.APP_DIR }}
-        run: npx electron-builder install-app-deps || true
+        run: npx electron-builder install-app-deps
 
-      - name: Linux tooling
+      - name: Install Linux tooling
         if: ${{ matrix.oskey == 'linux' }}
         run: |
           sudo apt-get update
@@ -119,23 +70,50 @@ jobs:
         if: ${{ matrix.cross == true }}
         uses: docker/setup-qemu-action@v3
 
-      - name: Build installers (verbose)
-        working-directory: ${{ env.APP_DIR }}
+      - name: Prepare macOS icon (.icns)
+        if: matrix.oskey == 'mac'
+        shell: bash
+        run: |
+          set -e
+          ICON_PNG="src/assets/images/logo.png"
+          ICON_ICNS="src/assets/images/logo.icns"
+          if [ -f "$ICON_ICNS" ]; then
+            echo "✅ Found logo.icns, skipping conversion"
+            exit 0
+          fi
+          if [ ! -f "$ICON_PNG" ]; then
+            echo "❌ logo.png not found at $ICON_PNG" >&2
+            exit 1
+          fi
+          echo "🔨 Generating .icns from .png ..."
+          mkdir -p logo.iconset
+          sips -z 16 16     "$ICON_PNG" --out logo.iconset/icon_16x16.png
+          sips -z 32 32     "$ICON_PNG" --out logo.iconset/icon_16x16@2x.png
+          sips -z 32 32     "$ICON_PNG" --out logo.iconset/icon_32x32.png
+          sips -z 64 64     "$ICON_PNG" --out logo.iconset/icon_32x32@2x.png
+          sips -z 128 128   "$ICON_PNG" --out logo.iconset/icon_128x128.png
+          sips -z 256 256   "$ICON_PNG" --out logo.iconset/icon_128x128@2x.png
+          sips -z 256 256   "$ICON_PNG" --out logo.iconset/icon_256x256.png
+          sips -z 512 512   "$ICON_PNG" --out logo.iconset/icon_256x256@2x.png
+          sips -z 512 512   "$ICON_PNG" --out logo.iconset/icon_512x512.png
+          sips -z 1024 1024 "$ICON_PNG" --out logo.iconset/icon_512x512@2x.png
+          iconutil -c icns logo.iconset -o "$ICON_ICNS"
+          rm -rf logo.iconset
+          echo "✅ Generated $ICON_ICNS"
+
+      - name: Build installers
         env:
           USE_HARD_LINKS: "false"
           ELECTRON_BUILDER_DOCKER: ${{ matrix.cross == true && 'true' || 'false' }}
         shell: bash
         run: |
-          set -e
-          echo "RUNNER_OS=$RUNNER_OS ARCH=${{ matrix.arch }} OSKEY=${{ matrix.oskey }}"
-          npx electron-builder --version || true
           if [[ "${{ matrix.oskey }}" == "mac" ]]; then
-            npx electron-builder --mac dmg zip --arch=${{ matrix.arch }} --publish=never --verbose
+            npx electron-builder --mac dmg zip --arch=${{ matrix.arch }}
           else
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              npx electron-builder --linux AppImage deb rpm --arm64 --publish=never --verbose
+              npx electron-builder --linux AppImage deb rpm --arm64
             else
-              npx electron-builder --linux AppImage deb rpm --x64  --publish=never --verbose
+              npx electron-builder --linux AppImage deb rpm --x64
             fi
           fi
 
@@ -143,24 +121,106 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: WokuShop-${{ matrix.oskey }}-${{ matrix.arch }}
-          path: ${{ env.APP_DIR }}/dist/**
+          path: |
+            wokushop-account-manager/dist/**
+          if-no-files-found: error
+
+  universal:
+    name: macOS Universal Binary
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: List downloaded artifacts
+        run: |
+          echo "📦 Downloaded artifacts:"
+          find artifacts -type f
+
+      - name: Create Universal Binary
+        shell: bash
+        run: |
+          set -e
+
+          # Tìm các file .app từ artifacts
+          APP_X64=$(find artifacts/WokuShop-mac-x64 -name "*.app" -type d | head -n 1)
+          APP_ARM=$(find artifacts/WokuShop-mac-arm64 -name "*.app" -type d | head -n 1)
+
+          if [ -z "$APP_X64" ] || [ -z "$APP_ARM" ]; then
+            echo "❌ Không tìm thấy .app files"
+            echo "x64: $APP_X64"
+            echo "arm64: $APP_ARM"
+            exit 1
+          fi
+
+          echo "✅ Found x64 app: $APP_X64"
+          echo "✅ Found arm64 app: $APP_ARM"
+
+          APP_NAME=$(basename "$APP_ARM")
+          APP_UNI="WokuShop-universal.app"
+
+          # Copy arm64 app làm base
+          echo "📋 Copying arm64 app as base..."
+          rsync -a "$APP_ARM/" "$APP_UNI/"
+
+          # Tìm executable chính
+          EXEC_NAME=$(basename "$APP_ARM/Contents/MacOS/"*)
+          EXEC_X64="$APP_X64/Contents/MacOS/$EXEC_NAME"
+          EXEC_ARM="$APP_ARM/Contents/MacOS/$EXEC_NAME"
+          EXEC_UNI="$APP_UNI/Contents/MacOS/$EXEC_NAME"
+
+          echo "🔨 Creating universal binary for: $EXEC_NAME"
+          lipo -create "$EXEC_X64" "$EXEC_ARM" -output "$EXEC_UNI"
+
+          # Verify
+          echo "✅ Universal binary created:"
+          lipo -info "$EXEC_UNI"
+
+      - name: Create DMG (Universal)
+        run: |
+          mkdir -p dist
+          hdiutil create -volname "Woku App" -srcfolder "WokuShop-universal.app" -ov -format UDZO "dist/Woku-App-universal.dmg"
+          echo "✅ Created Universal DMG"
+          ls -lh dist/
+
+      - name: Upload Universal artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WokuShop-mac-universal
+          path: dist/Woku-App-universal.dmg
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: build
+    name: Create GitHub Release
+    needs: [build, universal]
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
+      - name: List all artifacts
+        run: |
+          echo "📦 All artifacts ready for release:"
+          find artifacts -type f
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: ./artifacts/**/*
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
           draft: false
           prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

@@ -30,8 +30,10 @@ yarn-error.log*
 
 # Temporary files
 nul
+$null
 *.tmp
 *.temp
+cleanup.ps1
 
 # Internal folders
 .augment/

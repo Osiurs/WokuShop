@@ -7,13 +7,46 @@ const axios = require('axios');
 const FormData = require('form-data');
 const Store = require('electron-store');
 
-const store = new Store();
+// CRITICAL FIX: Use same store configuration as main.js
+const isDev = !app.isPackaged;
+const storeOptions = {
+  name: 'woku-app-store',
+  cwd: isDev 
+    ? path.join(app.getAppPath(), 'config') 
+    : path.join(app.getPath('userData'), 'config'),
+  clearInvalidConfig: true,
+  serialize: JSON.stringify,
+  deserialize: JSON.parse
+};
+
+// Ensure store directory exists
+const storeDir = storeOptions.cwd;
+if (!fs.existsSync(storeDir)) {
+  fs.mkdirSync(storeDir, { recursive: true });
+}
+
+const store = new Store(storeOptions);
 
 class SessionManager {
   constructor() {
-    this.partitionsPath = path.join(app.getPath('userData'), 'Partitions');
+    // Initialize partition path manager for consistent paths
+    this.partitionPathManager = new PartitionPathManager();
+    this.partitionsPath = this.partitionPathManager.standardPartitionsPath;
     this.tempPath = app.getPath('temp');
     this.apiBase = 'https://db.handymancode.com/api/wokushop-api';
+    
+    // Ensure partitions directory exists
+    if (!fs.existsSync(this.partitionsPath)) {
+      fs.mkdirSync(this.partitionsPath, { recursive: true });
+      console.log('💾 [Session Manager] Created partitions directory:', this.partitionsPath);
+    }
+
+    // Migrate any old partitions on startup
+    console.log('🔄 [Session Manager] Checking for old partitions to migrate...');
+    const migratedCount = this.partitionPathManager.migrateAllPartitions();
+    if (migratedCount > 0) {
+      console.log(`✅ [Session Manager] Migrated ${migratedCount} old partitions to standard location`);
+    }
   }
 
   /**

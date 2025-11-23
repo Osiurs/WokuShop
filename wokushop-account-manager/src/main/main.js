@@ -1,4 +1,47 @@
 const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { dialog } = require('electron');
+const log = require('electron-log');
+
+// Defer loading electron-updater until after app is ready and only in production
+let autoUpdater = null;
+function setupAutoUpdater() {
+  if (autoUpdater) return; // already set up
+  try {
+    const { autoUpdater: updater } = require('electron-updater');
+    autoUpdater = updater;
+
+    // Configure logging
+    autoUpdater.logger = log;
+    if (autoUpdater.logger && autoUpdater.logger.transports) {
+      autoUpdater.logger.transports.file.level = 'info';
+    }
+
+    // Wire events
+    autoUpdater.on('update-available', () => log.info('An update is available. Downloading...'));
+    autoUpdater.on('update-not-available', () => log.info('No new update available.'));
+    autoUpdater.on('error', (err) => log.error('Error in auto-updater: ' + err.toString()));
+    autoUpdater.on('download-progress', (p) => log.info(`Download speed: ${p.bytesPerSecond} - Downloaded ${p.percent}% (${p.transferred}/${p.total})`));
+    autoUpdater.on('update-downloaded', (info) => {
+      log.info('Update downloaded successfully.');
+      const dialogOpts = {
+        type: 'info',
+        buttons: ['Restart Now', 'Later'],
+        title: 'Application Update',
+        message: process.platform === 'win32' ? (info.releaseNotes || 'A new version is available.') : info.releaseName,
+        detail: 'A new version has been downloaded. Restart the application to apply the updates.'
+      };
+      dialog.showMessageBox(dialogOpts).then((ret) => {
+        if (ret.response === 0) autoUpdater.quitAndInstall();
+      });
+    });
+
+    log.info('✅ electron-updater loaded and configured');
+  } catch (error) {
+    log.warn('⚠️ electron-updater not available:', error.message);
+    autoUpdater = null; // keep null so we can skip later without mocks
+  }
+}
+
 const path = require('path');
 const fs = require('fs');
 const Store = require('electron-store');
@@ -18,7 +61,64 @@ try {
 }
 
 // Initialize electron-store for local data persistence
-const store = new Store();
+// CRITICAL FIX: Specify explicit path for both dev and production builds
+const isDev = !app.isPackaged;
+const storeOptions = {
+  name: 'woku-app-store',
+  cwd: isDev 
+    ? path.join(app.getAppPath(), 'config') 
+    : path.join(app.getPath('userData'), 'config'),
+  // Ensure directory exists
+  clearInvalidConfig: true,
+  serialize: JSON.stringify,
+  deserialize: JSON.parse
+};
+
+// Ensure store directory exists
+const storeDir = storeOptions.cwd;
+if (!fs.existsSync(storeDir)) {
+  fs.mkdirSync(storeDir, { recursive: true });
+  console.log('💾 [Store] Created store directory:', storeDir);
+}
+
+const store = new Store(storeOptions);
+console.log('💾 [Store] Initialized at:', store.path);
+
+// CRITICAL FIX: Migrate data from dev path to production path on first run
+function migrateStoreDataIfNeeded() {
+  try {
+    // Try to find old store location (from dev mode)
+    const oldDevPath = path.join(app.getAppPath(), 'config', 'woku-app-store.json');
+    const currentStorePath = store.path;
+    
+    // If we're in production and old dev data exists, migrate it
+    if (!isDev && fs.existsSync(oldDevPath) && oldDevPath !== currentStorePath) {
+      console.log('🔄 [Store Migration] Found old dev store data, migrating...');
+      console.log('   From:', oldDevPath);
+      console.log('   To:', currentStorePath);
+      
+      try {
+        const oldData = JSON.parse(fs.readFileSync(oldDevPath, 'utf8'));
+        
+        // Merge old data with current store
+        Object.keys(oldData).forEach(key => {
+          if (!store.has(key)) {
+            store.set(key, oldData[key]);
+            console.log('   ✅ Migrated key:', key);
+          }
+        });
+        
+        console.log('✅ [Store Migration] Data migration completed successfully');
+      } catch (migrationError) {
+        console.warn('⚠️ [Store Migration] Failed to migrate data:', migrationError.message);
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ [Store Migration] Migration check failed:', error.message);
+  }
+}
+
+migrateStoreDataIfNeeded();
 
 let mainWindow;
 let sessionWindows = new Map(); // Track all active session windows
@@ -27,7 +127,6 @@ let sessionWindows = new Map(); // Track all active session windows
 const deploymentManager = AutoDeploymentManager ? new AutoDeploymentManager() : null;
 
 // uBlock Origin Lite extension path
-const isDev = !app.isPackaged;
 const UBLOCK_EXTENSION_PATH = isDev
   ? path.join(app.getAppPath(), 'extensions/woku-ad-blocker') // Development: Correctly points to root
   : path.join(path.dirname(app.getAppPath()), 'extensions/woku-ad-blocker'); // Production: Correctly points to the folder outside app.asar
@@ -242,6 +341,26 @@ async function createSessionWindow(accountData) {
   logger.info(`Creating session window for: ${serviceName} (Service: ${serviceType}, User: ${userId})`);
 
   // Clean up allowed domains - remove https:// or http:// prefix
+  // Enforce single window per account (non-configurable)
+  const existingWin = sessionWindows.get(accountId);
+  if (existingWin && !existingWin.isDestroyed()) {
+    console.log('🚫 [Single-Window] Prevented opening a second window for account:', accountId);
+    try {
+      existingWin.focus();
+      if (typeof existingWin.flashFrame === 'function') {
+        existingWin.flashFrame(true);
+        setTimeout(() => { try { existingWin.flashFrame(false); } catch (e) {} }, 1500);
+      }
+    } catch (_) {}
+    return; // Block creating a new window
+  }
+
+  if (existingWin && existingWin.isDestroyed()) {
+    sessionWindows.delete(accountId);
+  }
+
+  const blockSettingsPages = true; // Always block settings pages
+
   let allowedDomains = rawAllowedDomains;
   if (Array.isArray(rawAllowedDomains)) {
     allowedDomains = rawAllowedDomains.map(domain => {
@@ -776,6 +895,7 @@ async function createSessionWindow(accountData) {
         const url = details.url.toLowerCase();
 
         if (url.includes('pagead') || url.includes('/ads/') || url.includes('doubleclick')) {
+
           console.log('🛑 [Enhanced AdBlock] BLOCKED ad send header:', details.url.substring(0, 100));
           callback({ cancel: true });
           return;
@@ -1825,25 +1945,98 @@ ipcMain.on('navigate-to-login', () => {
   }
 });
 
-ipcMain.on('logout', async () => {
-  // Handle session sync logout
+// Calls the backend logout endpoint. This is the most critical part for quitting.
+async function notifyBackendOfLogout(token) {
+  if (!token) return;
   try {
-    await sessionSyncManager.onLogout();
-  } catch (error) {
-    console.error('❌ [Session Sync] Logout error:', error.message);
+    const axios = require('axios');
+    const API_BASE_URL = 'https://db.handymancode.com/api/wokushop-api';
+    console.log('🚀 [Quit] Notifying backend to terminate session...');
+    await axios.post(`${API_BASE_URL}/auth/logout.php`, {}, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      timeout: 2500 // Give it 2.5 seconds to complete
+    });
+    console.log('✅ [Quit] Backend session termination request sent.');
+  } catch (apiError) {
+    console.error('❌ [Quit] Failed to notify backend of logout:', apiError.message);
   }
+}
 
-  // Clear all session windows
+// Centralized logout function for UI-triggered logout
+async function performUICleanup() {
+  console.log('🧹 [Cleanup] Performing local UI cleanup...');
+  stopHeartbeat();
+
+  // Close all session windows
   sessionWindows.forEach(win => {
-    if (!win.isDestroyed()) win.close();
+    if (win && !win.isDestroyed()) win.close();
   });
   sessionWindows.clear();
 
-  // Clear stored credentials
+  // Clear local data
   store.delete('authToken');
   store.delete('currentUser');
+  console.log('✅ [Cleanup] Local data cleared.');
+}
 
-  // Navigate to login
+// ========================================
+// SESSION HEARTBEAT
+// ========================================
+let heartbeatInterval = null;
+
+function startHeartbeat() {
+  // Stop any existing heartbeat
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+  }
+
+  console.log('❤️ [Heartbeat] Starting session heartbeat every 30 seconds.');
+
+  heartbeatInterval = setInterval(async () => {
+    const authToken = store.get('authToken');
+    if (!authToken) {
+      console.log('💔 [Heartbeat] No auth token, stopping heartbeat.');
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+      return;
+    }
+
+    try {
+      const axios = require('axios');
+      const API_BASE_URL = 'https://db.handymancode.com/api/wokushop-api';
+      await axios.post(`${API_BASE_URL}/auth/heartbeat.php`, {}, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+        timeout: 5000
+      });
+      console.log('❤️ [Heartbeat] Session pulse sent successfully.');
+    } catch (error) {
+      console.error('❌ [Heartbeat] Failed to send heartbeat:', error.message);
+      // If token is invalid (e.g., 401, 403), stop the heartbeat
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        console.log('🛑 [Heartbeat] Invalid session, stopping heartbeat.');
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+      }
+    }
+  }, 30000); // Send heartbeat every 30 seconds
+}
+
+// Stop heartbeat on logout
+function stopHeartbeat() {
+  if (heartbeatInterval) {
+    console.log('💔 [Heartbeat] Stopping session heartbeat.');
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+}
+
+
+ipcMain.on('logout', async () => {
+  const token = store.get('authToken');
+  await notifyBackendOfLogout(token);
+  await performUICleanup();
+
+  // Navigate to login screen
   if (mainWindow) {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
@@ -1918,6 +2111,10 @@ ipcMain.handle('session-sync-login', async (event, user, authToken) => {
   try {
     console.log('📡 [IPC] Session sync login for user:', user.username);
     await sessionSyncManager.onLogin(user, authToken);
+
+    // Start the session heartbeat after successful login
+    startHeartbeat();
+
     return { success: true, message: 'Session sync login successful' };
   } catch (error) {
     console.error('❌ [IPC] Session sync login failed:', error.message);
@@ -2107,7 +2304,25 @@ ipcMain.handle('restore-cookies-from-db', async (event, accountId, partitionId) 
 });
 
 // App lifecycle events
-app.whenReady().then(createMainWindow);
+app.whenReady().then(() => {
+  createMainWindow();
+
+  // Check for updates only when the app is packaged
+  if (!isDev) {
+    // Lazily set up auto-updater; if the module is missing, this will fail silently (caught inside)
+    setupAutoUpdater();
+    if (autoUpdater && autoUpdater.checkForUpdatesAndNotify) {
+      try {
+    log.info('Checking for updates...');
+    autoUpdater.checkForUpdatesAndNotify();
+      } catch (error) {
+        log.error('Failed to check for updates:', error.message);
+      }
+  } else {
+      log.warn('Auto-updater unavailable or not configured; skipping update check');
+    }
+  }
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -2141,6 +2356,8 @@ ipcMain.handle('deployment-get-config', async () => {
   } catch (error) {
     return {
       success: false,
+
+
       error: error.message
     };
   }
@@ -2151,6 +2368,8 @@ ipcMain.handle('deployment-start', async (event, config) => {
   try {
     if (!deploymentManager) {
       return {
+
+
         success: false,
         error: 'Auto deployment feature not available (missing dependencies)'
       };
@@ -2163,7 +2382,33 @@ ipcMain.handle('deployment-start', async (event, config) => {
     });
 
     // Setup progress callback
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     const progressCallback = (progress, status) => {
+
+
+
       event.sender.send('deployment-progress', { progress, status });
     };
 
