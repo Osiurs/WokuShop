@@ -48,30 +48,43 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: |
+            WokuShop/wokushop-account-manager/package-lock.json
             wokushop-account-manager/package-lock.json
             package-lock.json
 
-      # Auto-detect app directory (fallback to root if subfolder not found)
+      # Tự phát hiện thư mục app: thử theo thứ tự
+      # 1) wokushop-account-manager
+      # 2) WokuShop/wokushop-account-manager (nếu repo root là WokuShop)
+      # 3) . (root)
       - name: Detect app directory
         id: detect
         shell: bash
         run: |
           set -e
-          APP_DIR="wokushop-account-manager"
-          if [ ! -d "$APP_DIR" ] || [ ! -f "$APP_DIR/package.json" ]; then
-            echo "⚠️ Subfolder '$APP_DIR' not found or missing package.json. Falling back to repo root."
-            APP_DIR="."
+          CANDIDATES=(
+            "wokushop-account-manager"
+            "WokuShop/wokushop-account-manager"
+            "."
+          )
+          APP_DIR=""
+          for d in "${CANDIDATES[@]}"; do
+            if [ -d "$d" ] && [ -f "$d/package.json" ]; then
+              APP_DIR="$d"
+              break
+            fi
+          done
+          if [ -z "$APP_DIR" ]; then
+            echo "❌ Could not find app directory containing package.json"
+            echo "PWD=$(pwd)" && ls -la
+            exit 1
           fi
-          echo "App directory = $APP_DIR"
+          echo "✅ App directory = $APP_DIR"
           echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
 
-      # In nhanh cấu trúc và xác nhận file có mặt tại đúng chỗ
       - name: Inspect repo layout
         shell: bash
         run: |
-          echo "PWD=$(pwd)"
-          ls -la
-          echo "---- tree level 2 ----"
+          echo "PWD=$(pwd)"; ls -la
           if command -v apt-get >/dev/null 2>&1; then
             sudo apt-get update >/dev/null 2>&1 || true
             (command -v tree >/dev/null || sudo apt-get install -y tree) || true
@@ -87,7 +100,7 @@ jobs:
           node -v
           npm -v
           if [ -f package-lock.json ]; then
-            npm ci
+            npm ci || (echo "npm ci failed due to lock mismatch; falling back to npm install" && npm install --no-audit --no-fund)
           else
             npm install --no-audit --no-fund
           fi
