@@ -6,6 +6,9 @@ on:
       - 'v*'          # Trigger khi push tag v1.2.3
   workflow_dispatch:    # Cho phép chạy thủ công
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -248,7 +251,6 @@ jobs:
             artifacts/**/*.dmg
             artifacts/**/*.zip
             artifacts/**/*.exe
-            artifacts/**/*.nsis.zip
             artifacts/**/*.AppImage
             artifacts/**/*.deb
             artifacts/**/*.rpm
