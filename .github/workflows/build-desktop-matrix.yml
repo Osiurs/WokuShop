@@ -63,6 +63,10 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
+      - name: Install dmg-license (macOS)
+        if: ${{ matrix.oskey == 'mac' }}
+        run: npm install -D dmg-license --no-audit --no-fund
+
       - name: Rebuild native deps for Electron
         run: npx electron-builder install-app-deps
 
