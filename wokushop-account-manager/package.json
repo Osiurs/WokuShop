@@ -20,7 +20,7 @@
     "account-manager",
     "subscription-manager"
   ],
-  "author": "WokuShop",
+  "author": { "name": "WokuShop", "email": "wokushop@example.com" },
   "license": "ISC",
   "repository": {
     "type": "git",
@@ -88,7 +88,8 @@
         "rpm"
       ],
       "icon": "src/assets/images/logo.png",
-      "category": "Utility"
+      "category": "Utility",
+      "maintainer": "WokuShop <wokushop@example.com>"
     },
     "publish": {
       "provider": "github",

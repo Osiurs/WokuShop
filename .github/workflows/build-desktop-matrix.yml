@@ -65,9 +65,7 @@ jobs:
 
       - name: Install dmg-license (macOS)
         if: ${{ matrix.oskey == 'mac' }}
-        run: |
-          npm config set optional true
-          npm install dmg-license --no-save --prefer-online --no-audit --no-fund
+        run: npm install dmg-license --no-save --prefer-online --no-audit --no-fund
 
       - name: Rebuild native deps for Electron
         run: npx electron-builder install-app-deps
@@ -130,14 +128,15 @@ jobs:
         env:
           USE_HARD_LINKS: "false"
           ELECTRON_BUILDER_DOCKER: ${{ matrix.cross == true && 'true' || 'false' }}
+          ELECTRON_BUILDER_PUBLISH: "never"
         shell: bash
         run: |
           set -e
           if [[ "${{ matrix.oskey }}" == "mac" ]]; then
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              npx electron-builder --mac dmg zip --arm64
+              npx electron-builder --mac dmg zip --arm64 -p never
             else
-              npx electron-builder --mac dmg zip --x64
+              npx electron-builder --mac dmg zip --x64 -p never
             fi
           elif [[ "${{ matrix.oskey }}" == "win" ]]; then
             npx electron-builder --win nsis --x64
