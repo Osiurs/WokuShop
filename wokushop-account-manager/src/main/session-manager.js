@@ -6,6 +6,7 @@ const unzipper = require('unzipper');
 const axios = require('axios');
 const FormData = require('form-data');
 const Store = require('electron-store');
+const PartitionPathManager = require('./partition-path-manager');
 
 // CRITICAL FIX: Use same store configuration as main.js
 const isDev = !app.isPackaged;
