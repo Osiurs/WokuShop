@@ -16,7 +16,7 @@ jobs:
         include:
           # macOS: tách rõ x64 vs arm64
           - name: macOS x64
-            runs-on: macos-15      # đổi từ macos-13 → macos-15 (Intel)
+            runs-on: macos-15      # Intel
             oskey: mac
             arch: x64
           - name: macOS arm64
@@ -49,29 +49,43 @@ jobs:
           cache: npm
           cache-dependency-path: |
             wokushop-account-manager/package-lock.json
+            package-lock.json
+
+      # Auto-detect app directory (fallback to root if subfolder not found)
+      - name: Detect app directory
+        id: detect
+        shell: bash
+        run: |
+          set -e
+          APP_DIR="wokushop-account-manager"
+          if [ ! -d "$APP_DIR" ] || [ ! -f "$APP_DIR/package.json" ]; then
+            echo "⚠️ Subfolder '$APP_DIR' not found or missing package.json. Falling back to repo root."
+            APP_DIR="."
+          fi
+          echo "App directory = $APP_DIR"
+          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
 
       # In nhanh cấu trúc và xác nhận file có mặt tại đúng chỗ
       - name: Inspect repo layout
+        shell: bash
         run: |
           echo "PWD=$(pwd)"
           ls -la
           echo "---- tree level 2 ----"
-          sudo apt-get update >/dev/null 2>&1 || true
-          (command -v tree >/dev/null || sudo apt-get install -y tree) || true
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update >/dev/null 2>&1 || true
+            (command -v tree >/dev/null || sudo apt-get install -y tree) || true
+          fi
           tree -L 2 || true
-          echo "---- show app package.json ----"
-          cat wokushop-account-manager/package.json || true
-
-      # (Nếu app cần build API trước, bật block này)
-      # - name: Build API
-      #   working-directory: ./wokushop-api
-      #   run: |
-      #     if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
-      #     npm run build
+          echo "---- show app package.json ($APP_DIR) ----"
+          cat "$APP_DIR/package.json" || true
 
       - name: Install app deps (safe)
-        working-directory: ./wokushop-account-manager
+        working-directory: ${{ env.APP_DIR }}
+        shell: bash
         run: |
+          node -v
+          npm -v
           if [ -f package-lock.json ]; then
             npm ci
           else
@@ -79,7 +93,7 @@ jobs:
           fi
 
       - name: Rebuild native deps for Electron
-        working-directory: ./wokushop-account-manager
+        working-directory: ${{ env.APP_DIR }}
         run: npx electron-builder install-app-deps || true
 
       - name: Linux tooling
@@ -93,7 +107,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - name: Build installers (verbose)
-        working-directory: ./wokushop-account-manager
+        working-directory: ${{ env.APP_DIR }}
         env:
           USE_HARD_LINKS: "false"
           ELECTRON_BUILDER_DOCKER: ${{ matrix.cross == true && 'true' || 'false' }}
@@ -101,7 +115,7 @@ jobs:
         run: |
           set -e
           echo "RUNNER_OS=$RUNNER_OS ARCH=${{ matrix.arch }} OSKEY=${{ matrix.oskey }}"
-          npx electron-builder --version
+          npx electron-builder --version || true
           if [[ "${{ matrix.oskey }}" == "mac" ]]; then
             npx electron-builder --mac dmg zip --arch=${{ matrix.arch }} --publish=never --verbose
           else
@@ -116,7 +130,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: WokuShop-${{ matrix.oskey }}-${{ matrix.arch }}
-          path: wokushop-account-manager/dist/**
+          path: ${{ env.APP_DIR }}/dist/**
           if-no-files-found: error
 
   release:
