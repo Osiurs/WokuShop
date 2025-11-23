@@ -129,6 +129,7 @@ jobs:
           USE_HARD_LINKS: "false"
           ELECTRON_BUILDER_DOCKER: ${{ matrix.cross == true && 'true' || 'false' }}
           ELECTRON_BUILDER_PUBLISH: "never"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -e
@@ -139,12 +140,12 @@ jobs:
               npx electron-builder --mac dmg zip --x64 -p never
             fi
           elif [[ "${{ matrix.oskey }}" == "win" ]]; then
-            npx electron-builder --win nsis --x64
+            npx electron-builder --win nsis --x64 -p never
           else
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              npx electron-builder --linux AppImage deb rpm --arm64
+              npx electron-builder --linux AppImage deb rpm --arm64 -p never
             else
-              npx electron-builder --linux AppImage deb rpm --x64
+              npx electron-builder --linux AppImage deb rpm --x64 -p never
             fi
           fi
 
