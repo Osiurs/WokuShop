@@ -14,11 +14,11 @@ jobs:
         include:
           # macOS: build theo runner đúng kiến trúc
           - name: macOS x64
-            runs-on: macos-13      # Intel (x64)
+            runs-on: macos-15-intel   # Intel (x64) — macOS 13 deprecated
             oskey: mac
             arch: x64
           - name: macOS arm64
-            runs-on: macos-latest  # Apple Silicon (arm64)
+            runs-on: macos-latest     # Apple Silicon (arm64)
             oskey: mac
             arch: arm64
 
@@ -58,6 +58,7 @@ jobs:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: |
+            package-lock.json
             wokushop-account-manager/package-lock.json
 
       - name: Install app dependencies
@@ -106,6 +107,19 @@ jobs:
           iconutil -c icns logo.iconset -o "$ICON_ICNS"
           rm -rf logo.iconset
           echo "✅ Generated $ICON_ICNS"
+
+      - name: Prepare Windows icon (.ico)
+        if: matrix.oskey == 'win'
+        shell: pwsh
+        run: |
+          $png = "src/assets/images/logo.png"
+          $ico = "src/assets/images/logo.ico"
+          if (Test-Path $ico) { Write-Host "✅ Found logo.ico, skipping"; exit 0 }
+          if (-not (Test-Path $png)) { Write-Error "❌ logo.png not found at $png"; exit 1 }
+          choco install imagemagick -y --no-progress
+          magick convert $png -define icon:auto-resize=16,32,48,64,128,256 $ico
+          if (-not (Test-Path $ico)) { Write-Error "❌ Failed to generate .ico"; exit 1 }
+          Write-Host "✅ Generated $ico"
 
       - name: Build installers
         env:
