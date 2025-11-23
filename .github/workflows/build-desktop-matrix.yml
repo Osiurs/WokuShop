@@ -1,4 +1,4 @@
-name: Build Desktop (macOS + Linux Multi-Arch)
+name: Build Desktop (macOS + Windows + Linux Multi-Arch)
 
 on:
   push:
@@ -21,6 +21,12 @@ jobs:
             runs-on: macos-latest  # Apple Silicon (arm64)
             oskey: mac
             arch: arm64
+
+          # Windows x64
+          - name: Windows x64
+            runs-on: windows-latest
+            oskey: win
+            arch: x64
 
           # Linux x64 native
           - name: Linux x64
@@ -107,8 +113,11 @@ jobs:
           ELECTRON_BUILDER_DOCKER: ${{ matrix.cross == true && 'true' || 'false' }}
         shell: bash
         run: |
+          set -e
           if [[ "${{ matrix.oskey }}" == "mac" ]]; then
             npx electron-builder --mac dmg zip --arch=${{ matrix.arch }}
+          elif [[ "${{ matrix.oskey }}" == "win" ]]; then
+            npx electron-builder --win nsis --x64
           else
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
               npx electron-builder --linux AppImage deb rpm --arm64
@@ -215,6 +224,8 @@ jobs:
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.zip
+            artifacts/**/*.exe
+            artifacts/**/*.nsis.zip
             artifacts/**/*.AppImage
             artifacts/**/*.deb
             artifacts/**/*.rpm
@@ -223,4 +234,3 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
