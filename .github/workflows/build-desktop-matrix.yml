@@ -129,7 +129,11 @@ jobs:
         run: |
           set -e
           if [[ "${{ matrix.oskey }}" == "mac" ]]; then
-            npx electron-builder --mac dmg zip --arch=${{ matrix.arch }}
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+              npx electron-builder --mac dmg zip --arm64
+            else
+              npx electron-builder --mac dmg zip --x64
+            fi
           elif [[ "${{ matrix.oskey }}" == "win" ]]; then
             npx electron-builder --win nsis --x64
           else
