@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://db.handymancode.com">
-  <title>Dashboard - Woku App</title>
+  <title>Bảng Điều Khiển - Woku App</title>
   <link rel="stylesheet" href="../assets/css/styles.css">
 </head>
 <body>
@@ -26,36 +26,36 @@
       </div>
 
       <nav class="sidebar-nav">
-        <div class="nav-item active" data-page="dashboard">
+        <div class="nav-item admin-only active" data-page="dashboard">
           <i>📊</i>
-          <span>Dashboard</span>
+          <span>Bảng Điều Khiển</span>
         </div>
         <div class="nav-item" data-page="accounts">
           <i>🔐</i>
-          <span>Accounts</span>
+          <span>Tài Khoản</span>
         </div>
         <div class="nav-item admin-only" data-page="services">
           <i>🌐</i>
-          <span>Services</span>
+          <span>Dịch Vụ</span>
         </div>
         <div class="nav-item admin-only" data-page="users">
           <i>👥</i>
-          <span>Users</span>
+          <span>Người Dùng</span>
         </div>
         <div class="nav-item admin-only" data-page="history">
           <i>📜</i>
-          <span>History</span>
+          <span>Lịch Sử</span>
         </div>
         <div class="nav-item admin-only" data-page="chat-lock">
           <i>🔒</i>
-          <span>Chat Lock</span>
+          <span>Khóa Chat</span>
         </div>
 
       </nav>
 
       <div class="sidebar-footer">
         <button class="btn btn-logout" id="logoutBtn">
-          <i>🚪</i> Logout
+          <i>🚪</i> Đăng Xuất
         </button>
       </div>
     </aside>
@@ -63,7 +63,7 @@
     <!-- Main Content -->
     <main class="main-content">
       <div class="topbar">
-        <h1 id="pageTitle">Dashboard</h1>
+        <h1 id="pageTitle">Bảng Điều Khiển</h1>
       </div>
 
       <div class="content-area" id="contentArea">
@@ -76,25 +76,25 @@
   <div id="addAccountModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Add New Account</h2>
+        <h2>Thêm Tài Khoản Mới</h2>
         <button class="close-modal">&times;</button>
       </div>
       <form id="addAccountForm">
         <div class="form-group">
-          <label for="accountName">Account Name</label>
-          <input type="text" id="accountName" required placeholder="e.g., YouTube Premium">
+          <label for="accountName">Tên Tài Khoản</label>
+          <input type="text" id="accountName" required placeholder="Ví dụ: YouTube Premium">
         </div>
         <div class="form-group">
-          <label for="serviceType">Service Type</label>
+          <label for="serviceType">Loại Dịch Vụ</label>
           <select id="serviceType" required>
             <!-- Options loaded dynamically from database -->
           </select>
         </div>
         <div class="form-group">
-          <label for="accountDescription">Description</label>
-          <input type="text" id="accountDescription" placeholder="Optional description">
+          <label for="accountDescription">Mô Tả</label>
+          <input type="text" id="accountDescription" placeholder="Mô tả tùy chọn">
         </div>
-        <button type="submit" class="btn btn-primary">Add Account</button>
+        <button type="submit" class="btn btn-primary">Thêm Tài Khoản</button>
       </form>
     </div>
   </div>
@@ -103,26 +103,26 @@
   <div id="addUserModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Add New User</h2>
+        <h2>Thêm Người Dùng Mới</h2>
         <button class="close-modal">&times;</button>
       </div>
       <form id="addUserForm">
         <div class="form-group">
-          <label for="newUsername">Username</label>
-          <input type="text" id="newUsername" required placeholder="Enter username">
+          <label for="newUsername">Tên Đăng Nhập</label>
+          <input type="text" id="newUsername" required placeholder="Nhập tên đăng nhập">
         </div>
         <div class="form-group">
-          <label for="newPassword">Password</label>
-          <input type="password" id="newPassword" required placeholder="Enter password">
+          <label for="newPassword">Mật Khẩu</label>
+          <input type="password" id="newPassword" required placeholder="Nhập mật khẩu">
         </div>
         <div class="form-group">
-          <label for="userRoleSelect">Role</label>
+          <label for="userRoleSelect">Vai Trò</label>
           <select id="userRoleSelect" required>
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
+            <option value="user">Người Dùng</option>
+            <option value="admin">Quản Trị Viên</option>
           </select>
         </div>
-        <button type="submit" class="btn btn-primary">Add User</button>
+        <button type="submit" class="btn btn-primary">Thêm Người Dùng</button>
       </form>
     </div>
   </div>
@@ -131,11 +131,11 @@
   <div id="assignAccountsModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Assign Accounts</h2>
+        <h2>Phân Công Tài Khoản</h2>
         <button class="close-modal">&times;</button>
       </div>
       <div id="assignAccountsList"></div>
-      <button class="btn btn-primary" id="saveAssignments">Save Assignments</button>
+      <button class="btn btn-primary" id="saveAssignments">Lưu Phân Công</button>
     </div>
   </div>
 
@@ -143,32 +143,32 @@
   <div id="addServiceModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Add New Service</h2>
+        <h2>Thêm Dịch Vụ Mới</h2>
         <button class="close-modal">&times;</button>
       </div>
       <form id="addServiceForm">
         <div class="form-group">
-          <label for="newServiceType">Service Type (ID)</label>
-          <input type="text" id="newServiceType" required placeholder="e.g., discord, slack, notion">
-          <small>Use lowercase, no spaces</small>
+          <label for="newServiceType">Loại Dịch Vụ (ID)</label>
+          <input type="text" id="newServiceType" required placeholder="Ví dụ: discord, slack, notion">
+          <small>Sử dụng chữ thường, không khoảng trắng</small>
         </div>
         <div class="form-group">
-          <label for="serviceDisplayName">Display Name</label>
-          <input type="text" id="serviceDisplayName" required placeholder="e.g., Discord">
+          <label for="serviceDisplayName">Tên Hiển Thị</label>
+          <input type="text" id="serviceDisplayName" required placeholder="Ví dụ: Discord">
         </div>
         <div class="form-group">
-          <label for="serviceLoginUrl">Login URL</label>
+          <label for="serviceLoginUrl">URL Đăng Nhập</label>
           <input type="url" id="serviceLoginUrl" required placeholder="https://...">
         </div>
         <div class="form-group">
-          <label for="serviceDescription">Description</label>
-          <input type="text" id="serviceDescription" placeholder="Optional description">
+          <label for="serviceDescription">Mô Tả</label>
+          <input type="text" id="serviceDescription" placeholder="Mô tả tùy chọn">
         </div>
         <div class="form-group">
-          <label for="serviceIcon">Icon Emoji</label>
+          <label for="serviceIcon">Biểu Tượng Emoji</label>
           <input type="text" id="serviceIcon" placeholder="🌐" maxlength="10">
         </div>
-        <button type="submit" class="btn btn-primary">Add Service</button>
+        <button type="submit" class="btn btn-primary">Thêm Dịch Vụ</button>
       </form>
     </div>
   </div>
@@ -177,34 +177,34 @@
   <div id="editServiceModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Edit Service</h2>
+        <h2>Sửa Dịch Vụ</h2>
         <button class="close-modal">&times;</button>
       </div>
       <form id="editServiceForm">
         <input type="hidden" id="editServiceId">
         <div class="form-group">
-          <label for="editServiceDisplayName">Display Name</label>
+          <label for="editServiceDisplayName">Tên Hiển Thị</label>
           <input type="text" id="editServiceDisplayName" required>
         </div>
         <div class="form-group">
-          <label for="editServiceLoginUrl">Login URL</label>
+          <label for="editServiceLoginUrl">URL Đăng Nhập</label>
           <input type="url" id="editServiceLoginUrl" required>
         </div>
         <div class="form-group">
-          <label for="editServiceDescription">Description</label>
+          <label for="editServiceDescription">Mô Tả</label>
           <input type="text" id="editServiceDescription">
         </div>
         <div class="form-group">
-          <label for="editServiceIcon">Icon Emoji</label>
+          <label for="editServiceIcon">Biểu Tượng Emoji</label>
           <input type="text" id="editServiceIcon" maxlength="10">
         </div>
         <div class="form-group">
           <label>
             <input type="checkbox" id="editServiceActive">
-            Active
+            Kích Hoạt
           </label>
         </div>
-        <button type="submit" class="btn btn-primary">Update Service</button>
+        <button type="submit" class="btn btn-primary">Cập Nhật Dịch Vụ</button>
       </form>
     </div>
   </div>
@@ -213,7 +213,7 @@
   <div id="manageDomainsModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Manage Allowed Domains</h2>
+        <h2>Quản Lý Tên Miền Cho Phép</h2>
         <button class="close-modal">&times;</button>
       </div>
       <div id="domainsList"></div>
@@ -221,10 +221,10 @@
 
 
         <div class="form-group">
-          <label for="newDomain">Add Domain</label>
-          <input type="text" id="newDomain" placeholder="e.g., example.com" required>
+          <label for="newDomain">Thêm Tên Miền</label>
+          <input type="text" id="newDomain" placeholder="Ví dụ: example.com" required>
         </div>
-        <button type="submit" class="btn btn-primary">Add Domain</button>
+        <button type="submit" class="btn btn-primary">Thêm Tên Miền</button>
       </form>
     </div>
   </div>
@@ -233,37 +233,37 @@
   <div id="addChatLockModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Add Chat Lock</h2>
+        <h2>Thêm Khóa Chat</h2>
         <button class="close-modal">&times;</button>
       </div>
       <form id="addChatLockForm">
         <div class="form-group">
-          <label for="lockAccountId">Account *</label>
+          <label for="lockAccountId">Tài Khoản *</label>
           <select id="lockAccountId" required>
-            <option value="">Select an account...</option>
+            <option value="">Chọn tài khoản...</option>
           </select>
-          <small>Select the account where the chat is located</small>
+          <small>Chọn tài khoản chứa cuộc trò chuyện</small>
         </div>
 
         <div class="form-group">
-          <label for="lockChatId">Chat ID / URL *</label>
-          <input type="text" id="lockChatId" placeholder="e.g., abc123xyz or full URL" required>
-          <small>Enter the chat ID or paste the full chat URL. Examples:<br>
+          <label for="lockChatId">ID Chat / URL *</label>
+          <input type="text" id="lockChatId" placeholder="Ví dụ: abc123xyz hoặc URL đầy đủ" required>
+          <small>Nhập ID chat hoặc dán URL chat đầy đủ. Ví dụ:<br>
             - ChatGPT: https://chat.openai.com/c/<strong>abc123xyz</strong><br>
             - Gemini: https://gemini.google.com/app/<strong>def456</strong><br>
-            - Or just the ID: <strong>abc123xyz</strong>
+            - Hoặc chỉ ID: <strong>abc123xyz</strong>
           </small>
         </div>
 
         <div class="form-group">
-          <label for="lockUserId">Lock To User *</label>
+          <label for="lockUserId">Khóa Cho Người Dùng *</label>
           <select id="lockUserId" required>
-            <option value="">Select a user...</option>
+            <option value="">Chọn người dùng...</option>
           </select>
-          <small>Only this user (and admins) will be able to access this chat</small>
+          <small>Chỉ người dùng này (và quản trị viên) có thể truy cập chat này</small>
         </div>
 
-        <button type="submit" class="btn btn-primary">Lock Chat</button>
+        <button type="submit" class="btn btn-primary">Khóa Chat</button>
       </form>
     </div>
   </div>

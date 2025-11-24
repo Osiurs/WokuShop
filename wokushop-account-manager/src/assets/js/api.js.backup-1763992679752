@@ -12,51 +12,6 @@ class API {
   constructor() {
     this.baseURL = API_BASE_URL;
     this.token = this.getStoredToken();
-    this.setupInterceptors(); // Setup axios interceptor for auto logout
-  }
-
-  /**
-   * Setup Axios interceptors to handle session termination
-   * When session is terminated (logged in elsewhere), auto logout
-   */
-  setupInterceptors() {
-    // Response interceptor to catch 401 (session invalid)
-    axios.interceptors.response.use(
-      (response) => {
-        // Pass through successful responses
-        return response;
-      },
-      (error) => {
-        // Check if error is 401 and session was terminated
-        if (error.response && error.response.status === 401) {
-          const errorData = error.response.data;
-
-          // Check if it's a session termination (not just wrong password)
-          if (errorData && errorData.reason === 'session_terminated') {
-            console.warn('⚠️ [Auto Logout] Session terminated - logged in elsewhere');
-
-            // Show alert to user
-            alert(
-              '⚠️ Phiên đăng nhập đã hết hạn\n\n' +
-              (errorData.message || 'Bạn đã đăng nhập trên thiết bị khác.') +
-              '\n\nBạn sẽ được chuyển về trang đăng nhập.'
-            );
-
-            // Clear local data
-            this.clearStoredToken();
-            this.clearCurrentUser();
-
-            // Redirect to login
-            if (window.ipcRenderer) {
-              window.ipcRenderer.send('navigate-to-login');
-            }
-          }
-        }
-
-        // Reject the promise for other errors
-        return Promise.reject(error);
-      }
-    );
   }
 
   // Private error handler

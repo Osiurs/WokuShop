@@ -25,19 +25,19 @@ loginForm.addEventListener('submit', async (e) => {
   const password = passwordInput.value;
 
   if (!username || !password) {
-    showAlert('Please enter both username and password');
+    showAlert('Vui lòng nhập tên đăng nhập và mật khẩu');
     return;
   }
 
   // Disable button and show loading
   loginBtn.disabled = true;
-  loginBtn.textContent = 'Signing in...';
+  loginBtn.textContent = 'Đang đăng nhập...';
 
   try {
     const result = await api.login(username, password);
 
     if (result.success) {
-      showAlert('Login successful! Redirecting...', 'success');
+      showAlert('Đăng nhập thành công! Đang chuyển hướng...', 'success');
 
       // Log the login activity
       try {
@@ -63,14 +63,14 @@ loginForm.addEventListener('submit', async (e) => {
         window.ipcRenderer.send('navigate-to-dashboard');
       }, 1000);
     } else {
-      showAlert(result.message || 'Login failed. Please try again.');
+      showAlert(result.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
       loginBtn.disabled = false;
-      loginBtn.textContent = 'Sign In';
+      loginBtn.textContent = 'Đăng Nhập';
     }
   } catch (error) {
-    showAlert('Connection error: ' + (error.message || 'Cannot reach server. Make sure XAMPP is running.'));
+    showAlert('Lỗi kết nối: ' + (error.message || 'Không thể kết nối máy chủ.'));
     loginBtn.disabled = false;
-    loginBtn.textContent = 'Sign In';
+    loginBtn.textContent = 'Đăng Nhập';
   }
 });
 

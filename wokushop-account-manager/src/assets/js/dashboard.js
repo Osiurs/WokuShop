@@ -20,6 +20,18 @@ if (currentUser.role !== 'admin') {
   document.querySelectorAll('.admin-only').forEach(el => {
     el.classList.add('hidden');
   });
+
+  // Auto-redirect non-admin users to Accounts page instead of Dashboard
+  setTimeout(() => {
+    navigateToPage('accounts');
+    // Set Accounts nav item as active
+    document.querySelectorAll('.nav-item').forEach(nav => {
+      nav.classList.remove('active');
+      if (nav.getAttribute('data-page') === 'accounts') {
+        nav.classList.add('active');
+      }
+    });
+  }, 100);
 }
 
 // Page navigation
@@ -41,27 +53,27 @@ navItems.forEach(item => {
 function navigateToPage(page) {
   switch (page) {
     case 'dashboard':
-      pageTitle.textContent = 'Dashboard';
+      pageTitle.textContent = 'Bảng Điều Khiển';
       loadDashboard();
       break;
     case 'accounts':
-      pageTitle.textContent = 'Accounts';
+      pageTitle.textContent = 'Tài Khoản';
       loadAccounts();
       break;
     case 'services':
-      pageTitle.textContent = 'Service Management';
+      pageTitle.textContent = 'Quản Lý Dịch Vụ';
       loadServices();
       break;
     case 'users':
-      pageTitle.textContent = 'Users';
+      pageTitle.textContent = 'Người Dùng';
       loadUsers();
       break;
     case 'history':
-      pageTitle.textContent = 'Activity History';
+      pageTitle.textContent = 'Lịch Sử Hoạt Động';
       loadHistory();
       break;
     case 'chat-lock':
-      pageTitle.textContent = 'Chat Lock Management';
+      pageTitle.textContent = 'Quản Lý Khóa Chat';
       loadChatLock();
       break;
 
@@ -70,7 +82,7 @@ function navigateToPage(page) {
 
 // Load Dashboard
 async function loadDashboard() {
-  contentArea.innerHTML = '<div class="loading">Loading dashboard...</div>';
+  contentArea.innerHTML = '<div class="loading">Đang tải bảng điều khiển...</div>';
 
   try {
     const stats = await api.getStats();
@@ -79,25 +91,25 @@ async function loadDashboard() {
     contentArea.innerHTML = `
       <div class="stats-grid">
         <div class="stat-card">
-          <h3>Total Accounts</h3>
+          <h3>Tổng Tài Khoản</h3>
           <div class="stat-value">${stats.totalAccounts || 0}</div>
         </div>
         <div class="stat-card">
-          <h3>Total Users</h3>
+          <h3>Tổng Người Dùng</h3>
           <div class="stat-value">${stats.totalUsers || 0}</div>
         </div>
         <div class="stat-card">
-          <h3>Active Sessions</h3>
+          <h3>Phiên Hoạt Động</h3>
           <div class="stat-value">${stats.activeSessions || 0}</div>
         </div>
         <div class="stat-card">
-          <h3>Today's Activity</h3>
+          <h3>Hoạt Động Hôm Nay</h3>
           <div class="stat-value">${stats.todayActivity || 0}</div>
         </div>
       </div>
 
       <div class="activity-feed">
-        <h2>Recent Activity</h2>
+        <h2>Hoạt Động Gần Đây</h2>
         <div id="activityList"></div>
       </div>
     `;
@@ -113,28 +125,28 @@ async function loadDashboard() {
         </div>
       `).join('');
     } else {
-      activityList.innerHTML = '<div class="empty-state"><i>📭</i><p>No recent activity</p></div>';
+      activityList.innerHTML = '<div class="empty-state"><i>📭</i><p>Không có hoạt động gần đây</p></div>';
     }
   } catch (error) {
     console.error('Error loading dashboard:', error);
-    contentArea.innerHTML = `<div class="empty-state"><p>Error loading dashboard: ${error.message}</p></div>`;
+    contentArea.innerHTML = `<div class="empty-state"><p>Lỗi khi tải bảng điều khiển: ${error.message}</p></div>`;
   }
 }
 
 // Load Accounts
 async function loadAccounts() {
-  contentArea.innerHTML = '<div class="loading">Loading accounts...</div>';
+  contentArea.innerHTML = '<div class="loading">Đang tải tài khoản...</div>';
   const isAdmin = currentUser.role === 'admin';
 
   contentArea.innerHTML = `
     ${isAdmin ? `
       <div class="accounts-header">
-        <h2>Manage Accounts</h2>
-        <button class="btn btn-primary" id="addAccountBtn">+ Add Account</button>
+        <h2>Quản Lý Tài Khoản</h2>
+        <button class="btn btn-primary" id="addAccountBtn">+ Thêm Tài Khoản</button>
       </div>
     ` : ''}
     <div class="page-controls">
-      <input type="text" id="accountSearchInput" class="search-input" placeholder="🔎 Search accounts by name...">
+      <input type="text" id="accountSearchInput" class="search-input" placeholder="🔎 Tìm kiếm tài khoản theo tên...">
     </div>
     <div class="accounts-grid" id="accountsGrid"></div>
   `;
@@ -161,7 +173,7 @@ async function loadAccounts() {
     }
   } catch (error) {
     console.error('Error loading accounts:', error);
-    document.getElementById('accountsGrid').innerHTML = `<div class="empty-state"><p>Error loading accounts: ${error.message}</p></div>`;
+    document.getElementById('accountsGrid').innerHTML = `<div class="empty-state"><p>Lỗi khi tải tài khoản: ${error.message}</p></div>`;
   }
 }
 
@@ -173,13 +185,13 @@ function renderAccounts(accounts, userCounts = {}) {
     const currentUser = window.ipcRenderer.sendSync('get-store-value', 'currentUser');
     let message = '<div class="empty-state"><i>📦</i>';
     if (document.getElementById('accountSearchInput').value) {
-      message += '<p>No accounts match your search</p>';
+      message += '<p>Không có tài khoản nào phù hợp với tìm kiếm của bạn</p>';
     } else if (currentUser && currentUser.role === 'admin') {
-      message += '<p>No accounts created yet</p><p>Click "Add Account" to create one</p>';
+      message += '<p>Chưa có tài khoản nào được tạo</p><p>Nhấn "Thêm Tài Khoản" để tạo mới</p>';
     } else if (currentUser) {
-      message += `<p>No accounts assigned to you</p><p>Contact administrator for access</p><p><small>Logged in as: ${currentUser.username} (ID: ${currentUser.id})</small></p>`;
+      message += `<p>Không có tài khoản nào được phân cho bạn</p><p>Liên hệ quản trị viên để được cấp quyền truy cập</p><p><small>Đăng nhập với: ${currentUser.username} (ID: ${currentUser.id})</small></p>`;
     } else {
-      message += '<p>Authentication error</p><p>Please login again</p>';
+      message += '<p>Lỗi xác thực</p><p>Vui lòng đăng nhập lại</p>';
     }
     message += '<p><small>Server: https://db.handymancode.com/api/wokushop-api</small></p></div>';
     accountsGrid.innerHTML = message;
@@ -197,14 +209,14 @@ function renderAccounts(accounts, userCounts = {}) {
         ` : ''}
       </div>
       <h3>${account.service_name}</h3>
-      <p style="color: var(--text-secondary); margin-bottom: 15px;">${account.description || 'No description'}</p>
+      <p style="color: var(--text-secondary); margin-bottom: 15px;">${account.description || 'Không có mô tả'}</p>
       <div class="account-actions">
         <button class="btn btn-success btn-small launch-account" data-account='${JSON.stringify(account)}'>
-          Launch Session
+          Khởi Động Phiên
         </button>
         ${isAdmin ? `
-          <button class="btn btn-secondary btn-small edit-account" data-id="${account.id}">Edit</button>
-          <button class="btn btn-danger btn-small delete-account" data-id="${account.id}">Delete</button>
+          <button class="btn btn-secondary btn-small edit-account" data-id="${account.id}">Sửa</button>
+          <button class="btn btn-danger btn-small delete-account" data-id="${account.id}">Xóa</button>
         ` : ''}
       </div>
     </div>
@@ -235,7 +247,7 @@ function renderAccounts(accounts, userCounts = {}) {
     });
     document.querySelectorAll('.delete-account').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        if (confirm('Are you sure you want to delete this account?')) {
+        if (confirm('Bạn có chắc chắn muốn xóa tài khoản này?')) {
           deleteAccount(e.currentTarget.dataset.id);
         }
       });
@@ -253,7 +265,7 @@ async function launchAccountSession(account) {
 
     // Show loading state
     if (launchButton) {
-      launchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking session...';
+      launchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra phiên...';
       launchButton.disabled = true;
     }
 
@@ -266,7 +278,7 @@ async function launchAccountSession(account) {
 
       // Update loading message
       if (launchButton) {
-        launchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking backup...';
+        launchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra backup...';
       }
 
       // Check if backup is available
@@ -277,7 +289,7 @@ async function launchAccountSession(account) {
 
         // Update loading message
         if (launchButton) {
-          launchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Restoring session...';
+          launchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang khôi phục phiên...';
         }
 
         // Auto-restore session
@@ -286,14 +298,14 @@ async function launchAccountSession(account) {
           console.log('✅ Session auto-restored successfully!');
 
           // Show success notification
-          showNotification('Session restored automatically!', 'success');
+          showNotification('Phiên đã được khôi phục tự động!', 'success');
         } catch (restoreError) {
           console.warn('⚠️ Auto-restore failed, will launch with login page:', restoreError.message);
-          showNotification('Auto-restore failed, please login manually', 'warning');
+          showNotification('Khôi phục tự động thất bại, vui lòng đăng nhập thủ công', 'warning');
         }
       } else {
         console.log('ℹ️ No backup available, will launch with login page');
-        showNotification('No saved session found, please login', 'info');
+        showNotification('Không tìm thấy phiên đã lưu, vui lòng đăng nhập', 'info');
       }
     } else {
       console.log('✅ Session data found in partition, launching directly');
@@ -301,7 +313,7 @@ async function launchAccountSession(account) {
 
     // Update loading message
     if (launchButton) {
-      launchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading service...';
+      launchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải dịch vụ...';
     }
 
     // Get service info (which now includes allowed_domains)
@@ -321,7 +333,7 @@ async function launchAccountSession(account) {
 
     if (!service) {
       console.error('Available services:', services.map(s => s.service_type));
-      throw new Error(`Service type "${account.service_type}" not found`);
+      throw new Error(`Không tìm thấy loại dịch vụ "${account.service_type}"`);
     }
 
     const loginUrl = service.login_url || 'https://www.google.com';
@@ -378,7 +390,7 @@ async function launchAccountSession(account) {
     console.error('Error launching session:', error);
 
     // Show error notification
-    showNotification('Failed to launch session: ' + error.message, 'error');
+    showNotification('Không thể khởi động phiên: ' + error.message, 'error');
 
     // Reset button state
     if (launchButton) {
@@ -396,17 +408,17 @@ async function backupSession(accountId, partitionId) {
   try {
     // Validate inputs
     if (!accountId || !partitionId) {
-      throw new Error('Invalid account data. Account ID or Partition ID is missing.');
+      throw new Error('Dữ liệu tài khoản không hợp lệ. Thiếu ID Tài khoản hoặc ID Phân vùng.');
     }
 
-    if (!confirm('Backup current session state to server?\n\n⚠️ IMPORTANT: Please CLOSE the session window for this account BEFORE proceeding.\n\nThis will save the latest cookies and data. The backup will fail if the session window is open.')) {
+    if (!confirm('Sao lưu trạng thái phiên hiện tại lên máy chủ?\n\n⚠️ QUAN TRỌNG: Vui lòng ĐÓNG cửa sổ phiên của tài khoản này TRƯỚC KHI tiếp tục.\n\nĐiều này sẽ lưu cookies và dữ liệu mới nhất. Việc sao lưu sẽ thất bại nếu cửa sổ phiên đang mở.')) {
       return;
     }
 
     // Show loading indicator
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '⏳ Backing up...';
+      btn.innerHTML = '⏳ Đang sao lưu...';
     }
 
     console.log('Starting session backup for account:', accountId, 'partition:', partitionId);
@@ -422,28 +434,28 @@ async function backupSession(accountId, partitionId) {
     }
 
     if (result.success) {
-      alert('✅ Session backed up successfully!\n\nYou can now restore this session on another machine.');
+      alert('✅ Sao lưu phiên thành công!\n\nBạn có thể khôi phục phiên này trên máy khác.');
       console.log('Backup result:', result.data);
     } else {
-      throw new Error(result.message || 'Unknown error occurred during backup');
+      throw new Error(result.message || 'Lỗi không xác định xảy ra trong quá trình sao lưu');
     }
   } catch (error) {
     console.error('Error backing up session:', error);
     console.error('Error stack:', error.stack);
 
-    let errorMessage = '❌ Failed to backup session:\n\n';
+    let errorMessage = '❌ Sao lưu phiên thất bại:\n\n';
 
     if (error.message) {
       errorMessage += error.message;
     } else {
-      errorMessage += 'Unknown error. Check console log for details.';
+      errorMessage += 'Lỗi không xác định. Kiểm tra console log để biết chi tiết.';
     }
 
     // Add helpful hints
     if (error.message && error.message.includes('not found')) {
-      errorMessage += '\n\n💡 Tip: Open this account at least once before backing up.';
+      errorMessage += '\n\n💡 Mẹo: Mở tài khoản này ít nhất một lần trước khi sao lưu.';
     } else if (error.message && error.message.includes('ECONNREFUSED')) {
-      errorMessage += '\n\n💡 Tip: Make sure the API server is running (http://localhost/wokushop-api).';
+      errorMessage += '\n\n💡 Mẹo: Đảm bảo máy chủ API đang chạy (http://localhost/wokushop-api).';
     }
 
     alert(errorMessage);
@@ -464,17 +476,17 @@ async function restoreSession(accountId, partitionId, serviceType) {
   try {
     // Validate inputs
     if (!accountId || !partitionId) {
-      throw new Error('Invalid account data. Account ID or Partition ID is missing.');
+      throw new Error('Dữ liệu tài khoản không hợp lệ. Thiếu ID Tài khoản hoặc ID Phân vùng.');
     }
 
-    if (!confirm('Restore session from server?\n\nThis will download and restore the latest backup for this account.\n\n⚠️ WARNING: Current local session will be overwritten!')) {
+    if (!confirm('Khôi phục phiên từ máy chủ?\n\nĐiều này sẽ tải xuống và khôi phục bản sao lưu mới nhất cho tài khoản này.\n\n⚠️ CẢNH BÁO: Phiên cục bộ hiện tại sẽ bị ghi đè!')) {
       return;
     }
 
     // Show loading indicator
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '⏳ Restoring...';
+      btn.innerHTML = '⏳ Đang khôi phục...';
     }
 
     console.log('Starting session restore for account:', accountId, 'partition:', partitionId, 'service:', serviceType);
@@ -498,31 +510,31 @@ async function restoreSession(accountId, partitionId, serviceType) {
 
     if (result.success) {
       const message = serviceType === 'gemini'
-        ? '✅ Enhanced Gemini restore completed successfully!\n\n🔄 Gemini window will reload automatically in 3 seconds.'
-        : '✅ Session restored successfully!\n\n⚠️ IMPORTANT: Please close and reopen this account to use the restored session.';
+        ? '✅ Khôi phục Gemini nâng cao hoàn tất thành công!\n\n🔄 Cửa sổ Gemini sẽ tự động tải lại sau 3 giây.'
+        : '✅ Khôi phục phiên thành công!\n\n⚠️ QUAN TRỌNG: Vui lòng đóng và mở lại tài khoản này để sử dụng phiên đã khôi phục.';
 
       alert(message);
       console.log('Restore result:', result.data || result.message);
     } else {
-      throw new Error(result.message || 'Unknown error occurred during restore');
+      throw new Error(result.message || 'Lỗi không xác định xảy ra trong quá trình khôi phục');
     }
   } catch (error) {
     console.error('Error restoring session:', error);
     console.error('Error stack:', error.stack);
 
-    let errorMessage = '❌ Failed to restore session:\n\n';
+    let errorMessage = '❌ Khôi phục phiên thất bại:\n\n';
 
     if (error.message) {
       errorMessage += error.message;
     } else {
-      errorMessage += 'Unknown error. Check console log for details.';
+      errorMessage += 'Lỗi không xác định. Kiểm tra console log để biết chi tiết.';
     }
 
     // Add helpful hints
     if (error.message && error.message.includes('No backup found')) {
-      errorMessage += '\n\n💡 Tip: Create a backup first using the Backup button.';
+      errorMessage += '\n\n💡 Mẹo: Tạo bản sao lưu trước bằng nút Sao lưu.';
     } else if (error.message && error.message.includes('ECONNREFUSED')) {
-      errorMessage += '\n\n💡 Tip: Make sure the API server is running (http://localhost/wokushop-api).';
+      errorMessage += '\n\n💡 Mẹo: Đảm bảo máy chủ API đang chạy (http://localhost/wokushop-api).';
     }
 
     alert(errorMessage);
@@ -542,31 +554,31 @@ async function deleteAccount(accountId) {
     loadAccounts(); // Reload the accounts list
   } catch (error) {
     console.error('Error deleting account:', error);
-    alert('Failed to delete account: ' + error.message);
+    alert('Xóa tài khoản thất bại: ' + error.message);
   }
 }
 
 // Load Users (Admin only)
 async function loadUsers() {
-  contentArea.innerHTML = '<div class="loading">Loading users...</div>';
+  contentArea.innerHTML = '<div class="loading">Đang tải người dùng...</div>';
 
   contentArea.innerHTML = `
     <div class="accounts-header">
-      <h2>Manage Users</h2>
-      <button class="btn btn-primary" id="addUserBtn">+ Add User</button>
+      <h2>Quản Lý Người Dùng</h2>
+      <button class="btn btn-primary" id="addUserBtn">+ Thêm Người Dùng</button>
     </div>
     <div class="page-controls">
-      <input type="text" id="userSearchInput" class="search-input" placeholder="🔎 Search users by username...">
+      <input type="text" id="userSearchInput" class="search-input" placeholder="🔎 Tìm kiếm người dùng theo tên...">
     </div>
     <div class="table-container">
       <table>
         <thead>
           <tr>
             <th>ID</th>
-            <th>Username</th>
-            <th>Role</th>
-            <th>Created</th>
-            <th>Actions</th>
+            <th>Tên Đăng Nhập</th>
+            <th>Vai Trò</th>
+            <th>Ngày Tạo</th>
+            <th>Thao Tác</th>
           </tr>
         </thead>
         <tbody id="usersTableBody"></tbody>
@@ -587,8 +599,8 @@ async function loadUsers() {
 
     document.getElementById('addUserBtn').addEventListener('click', openAddUserModal);
   } catch (error) {
-    console.error('Error loading users:', error);
-    document.getElementById('usersTableBody').innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Error loading users: ${error.message}</p></div></td></tr>`;
+    console.error('Lỗi khi tải người dùng:', error);
+    document.getElementById('usersTableBody').innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Lỗi khi tải người dùng: ${error.message}</p></div></td></tr>`;
   }
 }
 
@@ -597,7 +609,7 @@ function renderUsers(users) {
 
   if (users.length === 0) {
     const searchTerm = document.getElementById('userSearchInput').value;
-    const message = searchTerm ? 'No users match your search' : 'No users found';
+    const message = searchTerm ? 'Không có người dùng nào phù hợp với tìm kiếm của bạn' : 'Không tìm thấy người dùng nào';
     tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">${message}</td></tr>`;
     return;
   }
@@ -610,11 +622,11 @@ function renderUsers(users) {
       <td>${formatDate(user.created_at)}</td>
       <td>
         ${user.role !== 'admin' ? `
-          <button class="btn btn-success btn-small login-as-user" data-id="${user.id}" data-username="${user.username}">Login as User</button>
+          <button class="btn btn-success btn-small login-as-user" data-id="${user.id}" data-username="${user.username}">Đăng Nhập Với Quyền</button>
         ` : ''}
-        <button class="btn btn-secondary btn-small assign-accounts" data-id="${user.id}">Assign Accounts</button>
+        <button class="btn btn-secondary btn-small assign-accounts" data-id="${user.id}">Phân Quyền Tài Khoản</button>
         ${user.id !== currentUser.id ? `
-          <button class="btn btn-danger btn-small delete-user" data-id="${user.id}">Delete</button>
+          <button class="btn btn-danger btn-small delete-user" data-id="${user.id}">Xóa</button>
         ` : ''}
       </td>
     </tr>
@@ -632,7 +644,7 @@ function renderUsers(users) {
 
   document.querySelectorAll('.delete-user').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      if (confirm('Are you sure you want to delete this user?')) {
+      if (confirm('Bạn có chắc chắn muốn xóa người dùng này?')) {
         deleteUser(e.currentTarget.dataset.id);
       }
     });
@@ -652,7 +664,7 @@ async function deleteUser(userId) {
     loadUsers(); // Reload the users list
   } catch (error) {
     console.error('Error deleting user:', error);
-    alert('Failed to delete user: ' + error.message);
+    alert('Xóa người dùng thất bại: ' + error.message);
   }
 }
 
@@ -674,13 +686,13 @@ async function loginAsUser(userId) {
     window.location.reload();
   } catch (error) {
     console.error('Error logging in as user:', error);
-    alert('Failed to login as user: ' + error.message);
+    alert('Đăng nhập với quyền người dùng thất bại: ' + error.message);
   }
 }
 
 // Load History (Admin only)
 async function loadHistory() {
-  contentArea.innerHTML = '<div class="loading">Loading history...</div>';
+  contentArea.innerHTML = '<div class="loading">Đang tải lịch sử...</div>';
 
   try {
     const response = await api.getUsageLogs(100);
@@ -691,10 +703,10 @@ async function loadHistory() {
         <table>
           <thead>
             <tr>
-              <th>User</th>
-              <th>Action</th>
-              <th>Details</th>
-              <th>Timestamp</th>
+              <th>Người Dùng</th>
+              <th>Hành Động</th>
+              <th>Chi Tiết</th>
+              <th>Thời Gian</th>
             </tr>
           </thead>
           <tbody id="historyTableBody"></tbody>
@@ -724,7 +736,7 @@ async function loadHistory() {
 
 // Load Chat Lock (Admin only)
 async function loadChatLock() {
-  contentArea.innerHTML = '<div class="loading">Loading chat locks...</div>';
+  contentArea.innerHTML = '<div class="loading">Đang tải khóa chat...</div>';
 
   try {
     const response = await api.getChatLocks();
@@ -732,7 +744,7 @@ async function loadChatLock() {
 
     contentArea.innerHTML = `
       <div class="accounts-header">
-        <h2>Chat Lock Management</h2>
+        <h2>Quản Lý Khóa Chat</h2>
         <p style="color: var(--text-secondary);">Lock specific AI chat conversations to individual users</p>
         <button class="btn btn-primary" id="addChatLockBtn">+ Add Chat Lock</button>
       </div>
@@ -741,11 +753,11 @@ async function loadChatLock() {
         <table>
           <thead>
             <tr>
-              <th>Account</th>
-              <th>Chat ID</th>
-              <th>Locked To</th>
-              <th>Created</th>
-              <th>Actions</th>
+              <th>Tài Khoản</th>
+              <th>ID Chat</th>
+              <th>Khóa Cho</th>
+              <th>Ngày Tạo</th>
+              <th>Thao Tác</th>
             </tr>
           </thead>
           <tbody id="chatLockTableBody"></tbody>
@@ -774,7 +786,7 @@ async function loadChatLock() {
       document.querySelectorAll('.delete-lock').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           const lockId = e.target.getAttribute('data-id');
-          if (confirm('Are you sure you want to remove this chat lock?')) {
+          if (confirm('Bạn có chắc chắn muốn gỡ khóa chat này?')) {
             await deleteChatLock(lockId);
           }
         });
@@ -796,7 +808,7 @@ async function deleteChatLock(lockId) {
     loadChatLock(); // Reload the chat locks list
   } catch (error) {
     console.error('Error deleting chat lock:', error);
-    alert('Failed to delete chat lock: ' + error.message);
+    alert('Gỡ khóa chat thất bại: ' + error.message);
   }
 }
 
@@ -826,7 +838,7 @@ async function openAddChatLockModal() {
 
     modal.classList.add('show');
   } catch (error) {
-    alert('Failed to load data: ' + error.message);
+    alert('Tải dữ liệu thất bại: ' + error.message);
   }
 }
 
@@ -882,13 +894,13 @@ async function openAddAccountModal() {
     ).join('');
 
     if (services.length === 0) {
-      alert('No active services available. Please add a service first.');
+      alert('Không có dịch vụ hoạt động nào. Vui lòng thêm dịch vụ trước.');
       return;
     }
 
     modal.classList.add('show');
   } catch (error) {
-    alert('Failed to load services: ' + error.message);
+    alert('Tải dịch vụ thất bại: ' + error.message);
   }
 }
 
@@ -926,7 +938,7 @@ async function openAssignAccountsModal(userId) {
     modal.classList.add('show');
   } catch (error) {
     console.error('Error loading assign accounts modal:', error);
-    alert('Failed to load accounts: ' + error.message);
+    alert('Tải tài khoản thất bại: ' + error.message);
   }
 }
 
@@ -955,7 +967,7 @@ document.getElementById('addAccountForm').addEventListener('submit', async (e) =
     loadAccounts(); // Reload accounts
   } catch (error) {
     console.error('Error adding account:', error);
-    alert('Failed to add account: ' + error.message);
+    alert('Thêm tài khoản thất bại: ' + error.message);
   }
 });
 
@@ -976,7 +988,7 @@ document.getElementById('addUserForm').addEventListener('submit', async (e) => {
     loadUsers(); // Reload users
   } catch (error) {
     console.error('Error adding user:', error);
-    alert('Failed to add user: ' + error.message);
+    alert('Thêm người dùng thất bại: ' + error.message);
   }
 });
 
@@ -992,16 +1004,16 @@ document.getElementById('saveAssignments').addEventListener('click', async () =>
   try {
     await api.assignAccounts(userId, accountIds);
     modal.classList.remove('show');
-    alert('Accounts assigned successfully!');
+    alert('Phân quyền tài khoản thành công!');
   } catch (error) {
     console.error('Error assigning accounts:', error);
-    alert('Failed to assign accounts: ' + error.message);
+    alert('Phân quyền tài khoản thất bại: ' + error.message);
   }
 });
 
 // Load Services
 async function loadServices() {
-  contentArea.innerHTML = '<div class="loading">Loading services...</div>';
+  contentArea.innerHTML = '<div class="loading">Đang tải dịch vụ...</div>';
 
   try {
     const result = await api.getServices();
@@ -1009,18 +1021,18 @@ async function loadServices() {
 
     contentArea.innerHTML = `
       <div class="page-header">
-        <button class="btn btn-primary" id="addServiceBtn">Add Service</button>
+        <button class="btn btn-primary" id="addServiceBtn">Thêm Dịch Vụ</button>
       </div>
       <div class="table-container">
         <table>
           <thead>
             <tr>
               <th>Icon</th>
-              <th>Service Type</th>
-              <th>Display Name</th>
-              <th>Login URL</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>Loại Dịch Vụ</th>
+              <th>Tên Hiển Thị</th>
+              <th>URL Đăng Nhập</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
             </tr>
           </thead>
           <tbody id="servicesTableBody">
@@ -1043,7 +1055,7 @@ async function loadServices() {
           <td>
             <button class="btn btn-small btn-primary edit-service-btn" data-id="${service.id}">Edit</button>
             <button class="btn btn-small manage-domains-btn" data-service-type="${service.service_type}">Domains</button>
-            <button class="btn btn-small btn-danger delete-service-btn" data-id="${service.id}">Delete</button>
+            <button class="btn btn-small btn-danger delete-service-btn" data-id="${service.id}">Xóa</button>
           </td>
         </tr>
       `).join('');
@@ -1089,7 +1101,7 @@ document.getElementById('addServiceForm').addEventListener('submit', async (e) =
     document.getElementById('addServiceForm').reset();
     loadServices();
   } catch (error) {
-    alert('Failed to create service: ' + error.message);
+    alert('Tạo dịch vụ thất bại: ' + error.message);
   }
 });
 
@@ -1121,13 +1133,13 @@ document.getElementById('editServiceForm').addEventListener('submit', async (e) 
     document.getElementById('editServiceModal').classList.remove('show');
     loadServices();
   } catch (error) {
-    alert('Failed to update service: ' + error.message);
+    alert('Cập nhật dịch vụ thất bại: ' + error.message);
   }
 });
 
 // Delete Service
 async function deleteService(serviceId) {
-  if (!confirm('Are you sure you want to delete this service? All associated accounts will also be deleted.')) {
+  if (!confirm('Bạn có chắc chắn muốn xóa dịch vụ này? Tất cả tài khoản liên kết cũng sẽ bị xóa.')) {
     return;
   }
 
@@ -1135,7 +1147,7 @@ async function deleteService(serviceId) {
     await api.deleteService(serviceId);
     loadServices();
   } catch (error) {
-    alert('Failed to delete service: ' + error.message);
+    alert('Xóa dịch vụ thất bại: ' + error.message);
   }
 }
 
@@ -1202,10 +1214,10 @@ function openAccountSettingsModal(accountId) {
         blockSettingsPages: document.getElementById('accBlockSettings').checked
       };
       window.ipcRenderer.send('set-store-value', 'accountSettings', settings);
-      alert('Saved account settings.');
+      alert('Đã lưu cài đặt tài khoản.');
       modal.classList.remove('show');
     } catch (e) {
-      alert('Failed to save settings: ' + e.message);
+      alert('Lưu cài đặt thất bại: ' + e.message);
     }
   });
 })();
@@ -1218,7 +1230,7 @@ function openAccountSettingsModal(accountId) {
             await api.deleteServiceDomain(btn.dataset.id);
             openManageDomainsModal(serviceType); // Refresh
           } catch (error) {
-            alert('Failed to delete domain: ' + error.message);
+            alert('Xóa tên miền thất bại: ' + error.message);
           }
         });
       });
@@ -1238,7 +1250,7 @@ document.getElementById('addDomainForm').addEventListener('submit', async (e) =>
     document.getElementById('newDomain').value = '';
     openManageDomainsModal(currentServiceType); // Refresh
   } catch (error) {
-    alert('Failed to add domain: ' + error.message);
+    alert('Thêm tên miền thất bại: ' + error.message);
   }
 });
 
@@ -1255,7 +1267,7 @@ document.getElementById('addChatLockForm').addEventListener('submit', async (e) 
   const account = (accountsResult.data || []).find(a => a.id == accountId);
 
   if (!account) {
-    alert('Selected account not found');
+    alert('Không tìm thấy tài khoản đã chọn');
     return;
   }
 
@@ -1276,7 +1288,7 @@ document.getElementById('addChatLockForm').addEventListener('submit', async (e) 
     alert(`✅ Chat locked successfully!\n\nChat ID: ${chatId}\nOnly the selected user and admins can access this chat.`);
     loadChatLock(); // Reload
   } catch (error) {
-    alert('Failed to create chat lock: ' + error.message);
+    alert('Tạo khóa chat thất bại: ' + error.message);
   }
 });
 
@@ -1289,13 +1301,13 @@ async function performSessionSync() {
     const syncBtn = document.getElementById('sessionSyncBtn');
     if (syncBtn) {
       syncBtn.disabled = true;
-      syncBtn.innerHTML = '⏳ Syncing...';
+      syncBtn.innerHTML = '⏳ Đang đồng bộ...';
     }
 
     const result = await api.sessionFullSync();
     console.log('✅ [Dashboard] Session sync successful:', result);
 
-    alert('✅ Session sync completed successfully!\n\nYour session has been synchronized across all devices.');
+    alert('✅ Đồng bộ phiên thành công!\n\nPhiên của bạn đã được đồng bộ trên tất cả thiết bị.');
 
     // Reload accounts to show updated data
     const currentPage = document.querySelector('.nav-item.active')?.getAttribute('data-page');
@@ -1305,13 +1317,13 @@ async function performSessionSync() {
 
   } catch (error) {
     console.error('❌ [Dashboard] Session sync failed:', error);
-    alert('❌ Session sync failed:\n\n' + error.message);
+    alert('❌ Đồng bộ phiên thất bại:\n\n' + error.message);
   } finally {
     // Reset button state
     const syncBtn = document.getElementById('sessionSyncBtn');
     if (syncBtn) {
       syncBtn.disabled = false;
-      syncBtn.innerHTML = '🔄 Sync Session';
+      syncBtn.innerHTML = '🔄 Đồng Bộ Phiên';
     }
   }
 }
@@ -1323,10 +1335,10 @@ async function validateSession() {
     const result = await api.sessionValidate();
     console.log('✅ [Dashboard] Session validation result:', result);
 
-    let message = '🔍 Session Validation Results:\n\n';
-    message += `• Session Valid: ${result.is_valid ? '✅ Yes' : '❌ No'}\n`;
-    message += `• Needs Sync: ${result.needs_sync ? '⚠️ Yes' : '✅ No'}\n`;
-    message += `• Session Exists: ${result.session_exists ? '✅ Yes' : '❌ No'}\n`;
+    let message = '🔍 Kết Quả Xác Thực Phiên:\n\n';
+    message += `• Session Valid: ${result.is_valid ? '✅ Có' : '❌ Không'}\n`;
+    message += `• Needs Sync: ${result.needs_sync ? '⚠️ Có' : '✅ Không'}\n`;
+    message += `• Session Exists: ${result.session_exists ? '✅ Có' : '❌ Không'}\n`;
     message += `• Assigned Accounts: ${result.assigned_accounts?.length || 0}\n`;
 
     if (result.session_machine_id) {
@@ -1335,20 +1347,20 @@ async function validateSession() {
     }
 
     if (result.needs_sync) {
-      message += '\n⚠️ Session needs synchronization. Click "Sync Session" to update.';
+      message += '\n⚠️ Phiên cần đồng bộ. Nhấn "Đồng Bộ Phiên" để cập nhật.';
     }
 
     alert(message);
 
   } catch (error) {
     console.error('❌ [Dashboard] Session validation failed:', error);
-    alert('❌ Session validation failed:\n\n' + error.message);
+    alert('❌ Xác thực phiên thất bại:\n\n' + error.message);
   }
 }
 
 // Logout
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  if (confirm('Are you sure you want to logout?')) {
+  if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
     await api.logout();
     window.ipcRenderer.send('logout');
   }
@@ -1425,7 +1437,7 @@ let deploymentLog = [];
 
 // Load Deployment Page
 async function loadDeployment() {
-  contentArea.innerHTML = '<div class="loading">Loading deployment...</div>';
+  contentArea.innerHTML = '<div class="loading">Đang tải triển khai...</div>';
 
   try {
     // Get saved config
@@ -1592,12 +1604,12 @@ async function testConnection() {
   }
 
   try {
-    showNotification('Testing SSH connection...', 'info');
+    showNotification('Đang kiểm tra kết nối SSH...', 'info');
 
     const result = await window.ipcRenderer.invoke('deployment-test-connection', config);
 
     if (result.success) {
-      showNotification('✅ SSH connection successful!', 'success');
+      showNotification('✅ Kết nối SSH thành công!', 'success');
     } else {
       showNotification(`❌ Connection failed: ${result.error}`, 'error');
     }
@@ -1615,7 +1627,7 @@ function saveConfig() {
   }
 
   deploymentConfig = config;
-  showNotification('✅ Configuration saved!', 'success');
+  showNotification('✅ Đã lưu cấu hình!', 'success');
 }
 
 // Gather config from form
@@ -1635,27 +1647,27 @@ function gatherConfig() {
 // Validate configuration
 function validateConfig(config, requirePasswords = true) {
   if (!config.host) {
-    showNotification('❌ Server host is required', 'error');
+    showNotification('❌ Cần nhập host máy chủ', 'error');
     return false;
   }
 
   if (!config.username) {
-    showNotification('❌ SSH username is required', 'error');
+    showNotification('❌ Cần nhập tên đăng nhập SSH', 'error');
     return false;
   }
 
   if (requirePasswords && !config.password) {
-    showNotification('❌ SSH password is required', 'error');
+    showNotification('❌ Cần nhập mật khẩu SSH', 'error');
     return false;
   }
 
   if (!config.remotePath) {
-    showNotification('❌ Remote path is required', 'error');
+    showNotification('❌ Cần nhập đường dẫn từ xa', 'error');
     return false;
   }
 
   if (requirePasswords && (!config.dbName || !config.dbUser)) {
-    showNotification('❌ Database credentials are required', 'error');
+    showNotification('❌ Cần nhập thông tin đăng nhập database', 'error');
     return false;
   }
 
@@ -1665,7 +1677,7 @@ function validateConfig(config, requirePasswords = true) {
 // Start deployment
 async function startDeployment() {
   if (deploymentInProgress) {
-    showNotification('⚠️ Deployment already in progress!', 'warning');
+    showNotification('⚠️ Triển khai đang trong tiến trình!', 'warning');
     return;
   }
 
@@ -1677,7 +1689,7 @@ async function startDeployment() {
 
   try {
     deploymentInProgress = true;
-    updateDeploymentStatus('deploying', 'Deployment in progress...');
+    updateDeploymentStatus('deploying', 'Đang triển khai...');
 
     // Switch to progress tab
     showTab('progress');
@@ -1694,7 +1706,7 @@ async function startDeployment() {
       addLogEntry(logEntry);
     });
 
-    showNotification('🚀 Starting deployment...', 'info');
+    showNotification('🚀 Bắt đầu triển khai...', 'info');
 
     const result = await window.ipcRenderer.invoke('deployment-start', config);
 
@@ -1703,16 +1715,16 @@ async function startDeployment() {
     window.ipcRenderer.removeAllListeners('deployment-log');
 
     if (result.success) {
-      updateDeploymentStatus('success', 'Deployment completed successfully!');
-      showNotification('🎉 Deployment completed successfully!', 'success');
-      updateProgress(100, 'Deployment completed successfully!');
+      updateDeploymentStatus('success', 'Triển khai hoàn tất thành công!');
+      showNotification('🎉 Triển khai hoàn tất thành công!', 'success');
+      updateProgress(100, 'Triển khai hoàn tất thành công!');
     } else {
-      updateDeploymentStatus('error', 'Deployment failed');
+      updateDeploymentStatus('error', 'Triển khai thất bại');
       showNotification(`❌ Deployment failed: ${result.error}`, 'error');
     }
 
   } catch (error) {
-    updateDeploymentStatus('error', 'Deployment error');
+    updateDeploymentStatus('error', 'Lỗi triển khai');
     showNotification(`❌ Deployment error: ${error.message}`, 'error');
   } finally {
     deploymentInProgress = false;
@@ -1732,8 +1744,8 @@ function updateDeploymentStatus(status, message) {
   if (deployBtn) {
     deployBtn.disabled = deploymentInProgress;
     deployBtn.innerHTML = deploymentInProgress ?
-      '<i>⏳</i> Deploying...' :
-      '<i>🚀</i> Deploy to Server';
+      '<i>⏳</i> Đang triển khai...' :
+      '<i>🚀</i> Triển Khai Lên Máy Chủ';
   }
 }
 
@@ -1798,10 +1810,10 @@ async function checkDeploymentStatus() {
 
     if (status.inProgress) {
       deploymentInProgress = true;
-      updateDeploymentStatus('deploying', 'Deployment in progress...');
+      updateDeploymentStatus('deploying', 'Đang triển khai...');
     } else {
       deploymentInProgress = false;
-      updateDeploymentStatus('ready', 'Ready');
+      updateDeploymentStatus('ready', 'Sẵn Sàng');
     }
 
     // Load existing logs

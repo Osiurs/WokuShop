@@ -2,14 +2,29 @@
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
+
 /**
- * Login API - Uses UnifiedSessionManager for session management
- * Enforces single session per user when STRATEGY_STRICT is enabled
+ * Login API - FINAL VERSION
+ * FORCE LOGOUT old sessions automatically - NO BLOCKING
+ *
+ * When user logs in on device B, device A session is terminated automatically.
+ * No "already has session" error - just logout old and create new.
  */
+
 require_once '../config/database.php';
 require_once '../config/auth.php';
 require_once '../config/unified-session-manager.php';
 require_once '../config/ip-helper.php';
+
+header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token");
+
+// Handle preflight
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 $database = new Database();
 $db = $database->getConnection();
@@ -42,14 +57,17 @@ try {
             // Get current IP address
             $currentIP = IPHelper::getRealIP();
 
-            // Auto-logout old sessions instead of blocking new login
-            // Force logout all existing sessions for this user
+            // ⭐ CRITICAL: Force logout ALL existing sessions FIRST
+            // This ensures single session per user - no blocking, just auto logout old sessions
+            error_log("[LOGIN] Force logging out all sessions for user ID: " . $row['id']);
             $sessionManager->forceLogoutAllUserSessions($row['id']);
+            error_log("[LOGIN] All old sessions terminated successfully");
 
-            // Generate token
+            // Generate new token
             $token = $auth->generateToken($row['id'], $row['username'], $row['role']);
 
-            // Create session using UnifiedSessionManager
+            // Create NEW session (old ones are already logged out)
+            error_log("[LOGIN] Creating new session for user ID: " . $row['id']);
             $sessionResult = $sessionManager->createSession($row['id'], $token, $currentIP);
 
             if (!$sessionResult['success']) {
@@ -60,6 +78,8 @@ try {
                 ]);
                 exit();
             }
+
+            error_log("[LOGIN] New session created successfully. Session ID: " . ($sessionResult['session_id'] ?? 'N/A'));
 
             // Fetch assigned accounts for the user
             $accountsQuery = "SELECT a.id, a.service_name, a.service_type, a.description, a.partition_id
@@ -74,7 +94,7 @@ try {
             http_response_code(200);
             echo json_encode([
                 "success" => true,
-                "message" => "Login successful.",
+                "message" => "Login successful. Previous sessions have been terminated.",
                 "token" => $token,
                 "user" => [
                     "id" => $row['id'],
@@ -88,11 +108,13 @@ try {
                     "session_id" => $sessionResult['session_id'] ?? null,
                     "device_fingerprint" => IPHelper::generateDeviceFingerprint(),
                     "user_agent" => IPHelper::getUserAgent(),
-                    "reason" => $loginCheck['reason'] ?? 'New session created',
-                    "strategy" => $sessionResult['strategy'] ?? 'unknown',
-                    "strategy_description" => $sessionResult['strategy_description'] ?? ''
+                    "strategy" => $sessionResult['strategy'] ?? 'strict',
+                    "strategy_description" => $sessionResult['strategy_description'] ?? 'Single session per user'
                 ]
             ]);
+
+            error_log("[LOGIN] Login successful for user: " . $row['username']);
+
         } else {
             http_response_code(401);
             echo json_encode([
@@ -107,13 +129,16 @@ try {
             "message" => "Invalid username or password."
         ]);
     }
+
 } catch (PDOException $e) {
+    error_log("[LOGIN ERROR] PDO Exception: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
         "success" => false,
         "message" => "Login failed: " . $e->getMessage()
     ]);
 } catch (Exception $e) {
+    error_log("[LOGIN ERROR] Exception: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
         "success" => false,

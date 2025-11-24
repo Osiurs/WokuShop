@@ -155,7 +155,37 @@ class Auth {
             ]);
             die();
         }
+
+        // ⭐ NEW: Check if session is still active in database
+        $token = $this->getTokenFromHeaders();
+        if ($token && !$this->isSessionActive($token)) {
+            http_response_code(401);
+            echo json_encode([
+                "success" => false,
+                "message" => "Session has been terminated. You may have logged in on another device.",
+                "reason" => "session_terminated"
+            ]);
+            die();
+        }
+
         return $user;
+    }
+
+    // ⭐ NEW: Check if session is still active in database
+    private function isSessionActive($token) {
+        // Check in sessions table (strict strategy)
+        $query = "SELECT id FROM sessions WHERE token = :token AND is_active = TRUE LIMIT 1";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute(['token' => $token]);
+        if ($stmt->rowCount() > 0) {
+            return true;
+        }
+
+        // Check in user_ip_sessions table (ip-based strategy)
+        $query = "SELECT id FROM user_ip_sessions WHERE session_token = :token AND is_active = TRUE LIMIT 1";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute(['token' => $token]);
+        return $stmt->rowCount() > 0;
     }
 
     // Require admin
@@ -194,4 +224,3 @@ class Auth {
         return $arr[1] ?? null;
     }
 }
-?>
