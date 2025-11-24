@@ -2324,41 +2324,7 @@ app.whenReady().then(() => {
   }
 });
 
-// ========================================
-// APP QUIT HANDLER - AUTO LOGOUT
-// ========================================
-let isQuitting = false;
 
-app.on('before-quit', async (event) => {
-  // Only run once
-  if (isQuitting) return;
-
-  // Prevent immediate quit so we can cleanup
-  event.preventDefault();
-  isQuitting = true;
-
-  console.log('🚪 [App Quit] User is closing the app. Performing auto-logout...');
-
-  try {
-    // Get auth token before cleanup
-    const token = store.get('authToken');
-
-    // Notify backend of logout
-    if (token) {
-      await notifyBackendOfLogout(token);
-    }
-
-    // Perform UI cleanup
-    await performUICleanup();
-
-    console.log('✅ [App Quit] Auto-logout completed successfully.');
-  } catch (error) {
-    console.error('❌ [App Quit] Error during auto-logout:', error);
-  } finally {
-    // Now allow the app to quit
-    app.quit();
-  }
-});
 
 // ========================================
 // APP QUIT HANDLER - AUTO LOGOUT
