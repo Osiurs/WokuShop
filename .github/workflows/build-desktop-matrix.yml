@@ -217,7 +217,7 @@ jobs:
       - name: Create DMG (Universal)
         run: |
           mkdir -p dist
-          hdiutil create -volname "Woku App" -srcfolder "WokuShop-universal.app" -ov -format UDZO "dist/Woku-App-universal.dmg"
+          hdiutil create -volname "WokuShop App" -srcfolder "WokuShop-universal.app" -ov -format UDZO "dist/WokuShop-App-universal.dmg"
           echo "✅ Created Universal DMG"
           ls -lh dist/
 
