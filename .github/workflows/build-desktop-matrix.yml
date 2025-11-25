@@ -1,4 +1,4 @@
-name: Build Desktop (macOS + Windows + Linux Multi-Arch)
+                                                                                                                                                                                                name: Build Desktop (macOS + Windows + Linux Multi-Arch)
 
 on:
   push:

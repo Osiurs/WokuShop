@@ -3,8 +3,8 @@ module.exports = {
   API_BASE_URL: process.env.API_URL || 'http://localhost/wokushop-api',
 
   // Application Settings
-  APP_NAME: 'Wokushop Account Manager',
-  APP_VERSION: '1.0.0',
+  APP_NAME: 'Wokushop App',
+  APP_VERSION: '1.0.16',
 
   // Theme Colors
   THEME: {
