@@ -42,7 +42,7 @@
   },
   "build": {
     "appId": "com.wokushop.wokuapp",
-    "productName": "Woku App",
+    "productName": "WokuShop App",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "dist",

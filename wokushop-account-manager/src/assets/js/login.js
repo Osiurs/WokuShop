@@ -60,7 +60,7 @@ loginForm.addEventListener('submit', async (e) => {
 
       // Navigate to dashboard
       setTimeout(() => {
-        window.ipcRenderer.send('navigate-to-dashboard');
+        window.location.href = 'dashboard.html?page=accounts';
       }, 1000);
     } else {
       showAlert(result.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
