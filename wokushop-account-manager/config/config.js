@@ -3,7 +3,7 @@ module.exports = {
   API_BASE_URL: process.env.API_URL || 'http://localhost/wokushop-api',
 
   // Application Settings
-  APP_NAME: 'Wokushop App',
+  APP_NAME: 'WokuShop App',
   APP_VERSION: '1.0.16',
 
   // Theme Colors

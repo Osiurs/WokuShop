@@ -1829,7 +1829,7 @@ function createGeminiWindow() {
       enableRemoteModule: false,
       partition: 'persist:gemini-session' // Use persistent session
     },
-    title: 'Gemini AI - Woku App',
+    title: 'Gemini AI - WokuShop App',
     icon: path.join(__dirname, '../assets/images/icon.png'),
     show: false
   });
