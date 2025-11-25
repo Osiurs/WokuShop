@@ -21,17 +21,16 @@ if (currentUser.role !== 'admin') {
     el.classList.add('hidden');
   });
 
-  // Auto-redirect non-admin users to Accounts page instead of Dashboard
-  setTimeout(() => {
-    navigateToPage('accounts');
-    // Set Accounts nav item as active
-    document.querySelectorAll('.nav-item').forEach(nav => {
-      nav.classList.remove('active');
-      if (nav.getAttribute('data-page') === 'accounts') {
-        nav.classList.add('active');
-      }
-    });
-  }, 100);
+  // Auto-redirect non-admin users to Accounts page IMMEDIATELY
+  // No setTimeout to avoid showing Dashboard briefly
+  navigateToPage('accounts');
+  // Set Accounts nav item as active
+  document.querySelectorAll('.nav-item').forEach(nav => {
+    nav.classList.remove('active');
+    if (nav.getAttribute('data-page') === 'accounts') {
+      nav.classList.add('active');
+    }
+  });
 }
 
 // Page navigation

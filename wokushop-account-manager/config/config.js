@@ -4,7 +4,7 @@ module.exports = {
 
   // Application Settings
   APP_NAME: 'WokuShop App',
-  APP_VERSION: '1.0.18',
+  APP_VERSION: '1.0.19',
 
   // Theme Colors
   THEME: {
